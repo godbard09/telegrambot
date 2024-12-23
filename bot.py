@@ -413,7 +413,8 @@ async def signal(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 async def monitor_signals(context: ContextTypes.DEFAULT_TYPE) -> None:
     """Theo dõi tín hiệu và tự động gửi thông báo."""
     try:
-        symbols = ["BTC/USDT", "ETH/USDT", "BNB/USDT"]  # Danh sách mã giao dịch theo dõi
+        markets = exchange.load_markets()
+        symbols = list(markets.keys())  # Danh sách mã giao dịch theo dõi
         timeframe = '1h'
         limit = 200
 
@@ -491,6 +492,11 @@ async def history(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 
     await update.message.reply_text(history_message)
+
+async def start_monitoring(application: Application):
+    """Khởi tạo job để theo dõi tín hiệu giao dịch."""
+    job_queue = application.job_queue
+    job_queue.run_repeating(monitor_signals, interval=3600, first=10)  # Chạy mỗi 1 giờ
 
 async def set_webhook(application: Application):
     """Thiết lập Webhook."""
