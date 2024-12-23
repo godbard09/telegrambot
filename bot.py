@@ -521,7 +521,8 @@ def main():
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
 
-    # Chạy Webhook
+    # Chạy Webhook và khởi động giám sát tín hiệu
+    loop.run_until_complete(start_monitoring(application))
     loop.run_until_complete(application.bot.set_webhook(WEBHOOK_URL))
     application.run_webhook(
         listen="0.0.0.0",
@@ -529,8 +530,6 @@ def main():
         webhook_url=WEBHOOK_URL
     )
 
-if __name__ == "__main__":
-    main()
 
 
 
