@@ -452,18 +452,22 @@ async def monitor_signals(context: ContextTypes.DEFAULT_TYPE) -> None:
             signals = []
 
 
+            # Thời điểm và giá hiện tại
+            current_time = last_row['timestamp'].strftime('%Y-%m-%d %H:%M:%S')
+            current_price = last_row['close']
+
             # Tín hiệu mua
             if last_row['close'] > last_row['MA50'] and last_row['MACD'] > last_row['Signal'] and last_row['RSI'] < 30:
-                signals.append(f"Mua: {symbol} - Giá cắt MA50, MACD tăng và RSI dưới 30.")
+             signals.append(f"Mua: Giá {current_price:.2f} USD tại {current_time}. Lý do: Cắt MA50, MACD tăng và RSI dưới 30.")
             elif last_row['close'] <= last_row['BB_Lower']:
-                signals.append(f"Mua: {symbol} - Giá gần dải BB dưới (quá bán).")
-
+             signals.append(f"Mua: Giá {current_price:.2f} USD tại {current_time}. Lý do: Gần dải BB dưới (quá bán).")
 
             # Tín hiệu bán
             if last_row['close'] < last_row['MA50'] and last_row['MACD'] < last_row['Signal'] and last_row['RSI'] > 70:
-                signals.append(f"Bán: {symbol} - Giá cắt MA50, MACD giảm và RSI trên 70.")
+             signals.append(f"Bán: Giá {current_price:.2f} USD tại {current_time}. Lý do: Cắt MA50, MACD giảm và RSI trên 70.")
             elif last_row['close'] >= last_row['BB_Upper']:
-                signals.append(f"Bán: {symbol} - Giá gần dải BB trên (quá mua).")
+             signals.append(f"Bán: Giá {current_price:.2f} USD tại {current_time}. Lý do: Gần dải BB trên (quá mua).")
+
 
 
             # Gửi tín hiệu qua Telegram nếu có tín hiệu
