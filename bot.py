@@ -490,7 +490,7 @@ async def history(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 def main():
     # Thay YOUR_TOKEN bằng token từ BotFather
-    TOKEN = "8081244500:AAH6zjPyaYIVOpmxBK-SvJ9WPTvJ0JRcD_c"
+    TOKEN = "8081244500:AAFkXKLfVoXQeqDYVW_HMdXluGELf9AWD3M"
     application = Application.builder().token(TOKEN).build()
 
     # Đăng ký các handler
