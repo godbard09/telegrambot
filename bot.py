@@ -7,6 +7,11 @@ from plotly.subplots import make_subplots
 import os
 import asyncio
 
+# Token bot từ BotFather
+TOKEN = "8081244500:AAFkXKLfVoXQeqDYVW_HMdXluGELf9AWD3M"
+
+# Địa chỉ Webhook (thay YOUR_RENDER_URL bằng URL ứng dụng Render của bạn)
+WEBHOOK_URL = f"https://telegrambot-an3l.onrender.com"
 # Khởi tạo KuCoin
 exchange = ccxt.kucoin()
 # Lưu trữ lịch sử tín hiệu
@@ -487,10 +492,13 @@ async def history(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     await update.message.reply_text(history_message)
 
+async def set_webhook(application: Application):
+    """Thiết lập Webhook."""
+    await application.bot.set_webhook(WEBHOOK_URL)
+
 
 def main():
-    # Thay YOUR_TOKEN bằng token từ BotFather
-    TOKEN = "8081244500:AAFkXKLfVoXQeqDYVW_HMdXluGELf9AWD3M"
+    # Khởi tạo ứng dụng Telegram bot
     application = Application.builder().token(TOKEN).build()
 
     # Đăng ký các handler
@@ -502,12 +510,15 @@ def main():
     application.add_handler(CommandHandler("cap", current_price))  # Thêm handler cho /cap
     application.add_handler(CallbackQueryHandler(button))  # Thêm handler cho nút bấm từ /top
 
-    # Thêm job định kỳ để giám sát tín hiệu
-    job_queue = application.job_queue
-    job_queue.run_repeating(monitor_signals, interval=3600, first=0)  # Kiểm tra tín hiệu mỗi giờ
+    # Thiết lập webhook
+    asyncio.run(set_webhook(application))
 
-    # Chạy bot
-    application.run_polling()
+    # Chạy Webhook
+    application.run_webhook(
+        listen="0.0.0.0",  # Lắng nghe trên tất cả các địa chỉ
+        port=int(os.getenv("PORT", 8443)),  # Cổng Render cung cấp
+        webhook_url=WEBHOOK_URL  # URL Webhook
+    )
 
 if __name__ == "__main__":
     main()
