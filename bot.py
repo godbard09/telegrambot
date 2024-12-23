@@ -510,14 +510,17 @@ def main():
     application.add_handler(CommandHandler("cap", current_price))  # Thêm handler cho /cap
     application.add_handler(CallbackQueryHandler(button))  # Thêm handler cho nút bấm từ /top
 
-    # Thiết lập webhook
-    asyncio.run(set_webhook(application))
+    # Khởi tạo event loop mới
+    asyncio.set_event_loop_policy(asyncio.DefaultEventLoopPolicy())
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
 
     # Chạy Webhook
+    loop.run_until_complete(application.bot.set_webhook(WEBHOOK_URL))
     application.run_webhook(
-        listen="0.0.0.0",  # Lắng nghe trên tất cả các địa chỉ
+        listen="0.0.0.0",
         port=int(os.getenv("PORT", 8443)),  # Cổng Render cung cấp
-        webhook_url=WEBHOOK_URL  # URL Webhook
+        webhook_url=WEBHOOK_URL
     )
 
 if __name__ == "__main__":
