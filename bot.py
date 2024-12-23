@@ -528,11 +528,13 @@ def main():
     # Chạy Webhook và khởi động giám sát tín hiệu
     loop.run_until_complete(start_monitoring(application))
     loop.run_until_complete(application.bot.set_webhook(WEBHOOK_URL))
+    port = int(os.getenv("PORT", 8443))  # Lấy cổng từ biến môi trường
+    print(f"Đang sử dụng cổng: {port}")  # Thêm dòng log để kiểm tra
     application.run_webhook(
-        listen="0.0.0.0",
-        port=int(os.getenv("PORT", 8443)),  # Cổng Render cung cấp
-        webhook_url=WEBHOOK_URL
-    )
+     listen="0.0.0.0",
+     port=port,
+     webhook_url=WEBHOOK_URL
+)
 
 
 
