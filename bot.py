@@ -380,7 +380,14 @@ async def signal(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         # Lấy dữ liệu từ KuCoin
         ohlcv = exchange.fetch_ohlcv(symbol, timeframe, limit=limit)
         df = pd.DataFrame(ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
-        df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
+        df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')  # Đảm bảo là datetime64[ns]
+
+        # Xác định thời điểm 1 tuần trước
+        now = pd.Timestamp.utcnow()
+        one_week_ago = pd.to_datetime(now - pd.Timedelta(days=7))  # Chuyển sang datetime64[ns]
+
+        # Lọc dữ liệu trong vòng 1 tuần qua
+        df = df[df['timestamp'] >= one_week_ago]  # So sánh an toàn
 
         # Tính toán các chỉ báo kỹ thuật
         df['MA50'] = df['close'].rolling(window=50).mean()
@@ -397,54 +404,30 @@ async def signal(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         df['BB_Upper'] = df['BB_Middle'] + 2 * df['close'].rolling(window=20).std()
         df['BB_Lower'] = df['BB_Middle'] - 2 * df['close'].rolling(window=20).std()
 
-        # Phát hiện tín hiệu hiện tại
-        last_row = df.iloc[-1]
-        current_signals = []
-        current_time = last_row['timestamp']
-        current_price = last_row['close']
-
-        if last_row['close'] > last_row['MA50'] and last_row['MACD'] > last_row['Signal'] and last_row['RSI'] < 30:
-            current_signals.append(f"Mua: Giá {current_price:.2f} USD tại {current_time}.")
-        elif last_row['close'] <= last_row['BB_Lower']:
-            current_signals.append(f"Mua: Giá {current_price:.2f} USD tại {current_time}.")
-        if last_row['close'] < last_row['MA50'] and last_row['MACD'] < last_row['Signal'] and last_row['RSI'] > 70:
-            current_signals.append(f"Bán: Giá {current_price:.2f} USD tại {current_time}.")
-        elif last_row['close'] >= last_row['BB_Upper']:
-            current_signals.append(f"Bán: Giá {current_price:.2f} USD tại {current_time}.")
-
-        # Gửi tín hiệu hiện tại
-        if current_signals:
-            await update.message.reply_text(f"Tín hiệu hiện tại cho {symbol}:\n" + "\n".join(current_signals))
-        else:
-            await update.message.reply_text(f"Không có tín hiệu rõ ràng tại thời điểm hiện tại cho {symbol}.")
-
-        # Kiểm tra tín hiệu trong vòng 1 tuần qua
-        now = pd.Timestamp.utcnow()
-        last_week = df[df['timestamp'] >= pd.Timestamp(now - pd.Timedelta(days=7))]  # Sửa lỗi so sánh
-        historical_signals = []
-
-        for _, row in last_week.iterrows():
+        # Phát hiện tín hiệu trong vòng 1 tuần qua
+        signals = []
+        for _, row in df.iterrows():
             time = row['timestamp']
             price = row['close']
             if row['close'] > row['MA50'] and row['MACD'] > row['Signal'] and row['RSI'] < 30:
-                historical_signals.append(f"Mua: Giá {price:.2f} USD tại {time}.")
+                signals.append(f"Mua: Giá {price:.2f} USD tại {time}.")
             elif row['close'] <= row['BB_Lower']:
-                historical_signals.append(f"Mua: Giá {price:.2f} USD tại {time}.")
+                signals.append(f"Mua: Giá {price:.2f} USD tại {time}.")
             if row['close'] < row['MA50'] and row['MACD'] < row['Signal'] and row['RSI'] > 70:
-                historical_signals.append(f"Bán: Giá {price:.2f} USD tại {time}.")
+                signals.append(f"Bán: Giá {price:.2f} USD tại {time}.")
             elif row['close'] >= row['BB_Upper']:
-                historical_signals.append(f"Bán: Giá {price:.2f} USD tại {time}.")
+                signals.append(f"Bán: Giá {price:.2f} USD tại {time}.")
 
-        # Gửi tín hiệu 1 tuần qua
-        if historical_signals:
+        # Gửi tín hiệu
+        if signals:
             await update.message.reply_text(
-                f"Tín hiệu trong vòng 1 tuần qua cho {symbol}:\n" + "\n".join(historical_signals)
+                f"Tín hiệu trong vòng 1 tuần qua cho {symbol}:\n" + "\n".join(signals)
             )
         else:
             await update.message.reply_text(f"Không có tín hiệu rõ ràng trong 1 tuần qua cho {symbol}.")
-
     except Exception as e:
         await update.message.reply_text(f"Đã xảy ra lỗi: {e}")
+
 
 
 async def monitor_signals(context: ContextTypes.DEFAULT_TYPE) -> None:
