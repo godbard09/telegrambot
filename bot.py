@@ -361,7 +361,6 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 
 async def signal(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Phân tích và gửi tín hiệu mua bán tại thời điểm hiện tại và trong 1 tuần qua."""
     try:
         # Lấy mã giao dịch từ context.args
         symbol = context.args[0] if context.args else None
@@ -370,7 +369,7 @@ async def signal(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             return
 
         timeframe = '1h'
-        limit = 500  # Tăng limit để lấy đủ dữ liệu trong 7 ngày
+        limit = 500
 
         # Kiểm tra xem mã giao dịch có hợp lệ không
         markets = exchange.load_markets()
@@ -421,7 +420,7 @@ async def signal(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
         # Kiểm tra tín hiệu trong vòng 1 tuần qua
         now = pd.Timestamp.utcnow()
-        last_week = df[df['timestamp'] >= now - pd.Timedelta(days=7)]
+        last_week = df[df['timestamp'] >= pd.Timestamp(now - pd.Timedelta(days=7))]  # Sửa lỗi so sánh
         historical_signals = []
 
         for _, row in last_week.iterrows():
