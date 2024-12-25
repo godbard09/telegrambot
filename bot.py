@@ -553,12 +553,26 @@ def main():
     application.add_handler(CommandHandler("cap", current_price))  # Thêm handler cho /cap
     application.add_handler(CallbackQueryHandler(button))  # Thêm handler cho nút bấm từ /top
 
+    # Thiết lập danh sách lệnh bot
+    commands = [
+        ("start", "Bắt đầu và hướng dẫn sử dụng bot"),
+        ("subscribe", "Đăng ký nhận thông báo tự động"),
+        ("unsubscribe", "Huỷ đăng ký nhận thông báo"),
+        ("chart", "Xem biểu đồ kỹ thuật (ví dụ: /chart BTC/USDT)"),
+        ("signal", "Nhận tín hiệu mua bán (ví dụ: /signal BTC/USDT)"),
+        ("history", "Xem lịch sử tín hiệu"),
+        ("top", "Xem top 10 cặp giao dịch tăng và giảm mạnh nhất"),
+        ("cap", "Xem thông tin giá hiện tại (ví dụ: /cap BTC/USDT)")
+    ]
+    application.bot.set_my_commands(commands)
+
     # Chạy webhook
     application.run_webhook(
         listen="0.0.0.0",
         port=port,
         webhook_url=WEBHOOK_URL
     )
+
 
 if __name__ == "__main__":
     main()
