@@ -532,7 +532,7 @@ async def history(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 async def start_monitoring(application: Application):
     """Khởi tạo job để theo dõi tín hiệu giao dịch."""
     job_queue = application.job_queue
-    job_queue.run_repeating(monitor_signals, interval=3600, first=10)  # Chạy mỗi 1 giờ
+    job_queue.run_repeating(monitor_signals, interval=300, first=10)  # Chạy mỗi 5 phút
 
 async def set_webhook(application: Application):
     """Thiết lập Webhook."""
