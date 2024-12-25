@@ -158,7 +158,7 @@ async def chart(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
         # Tạo biểu đồ
         fig = make_subplots(
-            rows=3,
+            rows=4,
             cols=1,
             shared_xaxes=True,
             vertical_spacing=0.03,
