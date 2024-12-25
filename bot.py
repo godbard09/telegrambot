@@ -386,6 +386,14 @@ async def signal(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         now = pd.Timestamp.utcnow()
         one_week_ago = pd.to_datetime(now - pd.Timedelta(days=7))  # Chuyển sang datetime64[ns]
 
+        # Kiểm tra kiểu dữ liệu
+        print(f"Kiểu dữ liệu của df['timestamp']: {df['timestamp'].dtype}")
+        print(f"Kiểu dữ liệu của one_week_ago: {type(one_week_ago)}")
+
+        # Chuyển đổi đồng bộ cột `timestamp` và giá trị so sánh
+        df['timestamp'] = pd.to_datetime(df['timestamp'])
+        one_week_ago = pd.to_datetime(one_week_ago)
+
         # Lọc dữ liệu trong vòng 1 tuần qua
         df = df[df['timestamp'] >= one_week_ago]  # So sánh an toàn
 
