@@ -6,6 +6,7 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import os
 import asyncio
+import json
 
 # Token bot từ BotFather
 TOKEN = "8081244500:AAFkXKLfVoXQeqDYVW_HMdXluGELf9AWD3M"
@@ -27,6 +28,41 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         "Gõ /history để xem lịch sử tín hiệu.\n"
         "Gõ /cap <mã giao dịch> để xem thông tin giá hiện tại."
     )
+
+# File lưu danh sách subscribers
+SUBSCRIBERS_FILE = "subscribers.json"
+
+def load_subscribers():
+    if os.path.exists(SUBSCRIBERS_FILE):
+        with open(SUBSCRIBERS_FILE, "r") as f:
+            return json.load(f)
+    return []
+
+def save_subscribers(subscribers):
+    with open(SUBSCRIBERS_FILE, "w") as f:
+        json.dump(subscribers, f)
+
+subscribers = load_subscribers()
+
+async def subscribe(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Đăng ký nhận thông báo tự động."""
+    chat_id = update.message.chat_id
+    if chat_id not in subscribers:
+        subscribers.append(chat_id)
+        save_subscribers(subscribers)
+        await update.message.reply_text("Bạn đã đăng ký nhận thông báo tự động!")
+    else:
+        await update.message.reply_text("Bạn đã đăng ký trước đó rồi.")
+
+async def unsubscribe(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Huỷ đăng ký nhận thông báo tự động."""
+    chat_id = update.message.chat_id
+    if chat_id in subscribers:
+        subscribers.remove(chat_id)
+        save_subscribers(subscribers)
+        await update.message.reply_text("Bạn đã huỷ đăng ký nhận thông báo.")
+    else:
+        await update.message.reply_text("Bạn chưa đăng ký trước đó.")
 
 async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Hiển thị thông tin giá hiện tại của một mã giao dịch."""
@@ -411,25 +447,22 @@ async def signal(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 
 async def monitor_signals(context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Theo dõi tín hiệu và tự động gửi thông báo."""
+    """Theo dõi tín hiệu và tự động gửi thông báo đến subscribers."""
     try:
         markets = exchange.load_markets()
         symbols = list(markets.keys())  # Danh sách mã giao dịch theo dõi
         timeframe = '1h'
         limit = 200
 
-
         for symbol in symbols:
             markets = exchange.load_markets()
             if symbol not in markets:
                 continue
 
-
             # Lấy dữ liệu từ KuCoin
             ohlcv = exchange.fetch_ohlcv(symbol, timeframe, limit=limit)
             df = pd.DataFrame(ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
             df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
-
 
             # Tính toán các chỉ báo kỹ thuật
             df['MA50'] = df['close'].rolling(window=50).mean()
@@ -446,11 +479,9 @@ async def monitor_signals(context: ContextTypes.DEFAULT_TYPE) -> None:
             df['BB_Upper'] = df['BB_Middle'] + 2 * df['close'].rolling(window=20).std()
             df['BB_Lower'] = df['BB_Middle'] - 2 * df['close'].rolling(window=20).std()
 
-
             # Phát hiện tín hiệu mua bán
             last_row = df.iloc[-1]
             signals = []
-
 
             # Thời điểm và giá hiện tại
             current_time = last_row['timestamp'].strftime('%Y-%m-%d %H:%M:%S')
@@ -458,27 +489,24 @@ async def monitor_signals(context: ContextTypes.DEFAULT_TYPE) -> None:
 
             # Tín hiệu mua
             if last_row['close'] > last_row['MA50'] and last_row['MACD'] > last_row['Signal'] and last_row['RSI'] < 30:
-             signals.append(f"Mua: Giá {current_price:.2f} USD tại {current_time}. Lý do: Cắt MA50, MACD tăng và RSI dưới 30.")
+                signals.append(f"Mua: Giá {current_price:.2f} USD tại {current_time}. Lý do: Cắt MA50, MACD tăng và RSI dưới 30.")
             elif last_row['close'] <= last_row['BB_Lower']:
-             signals.append(f"Mua: Giá {current_price:.2f} USD tại {current_time}. Lý do: Gần dải BB dưới (quá bán).")
+                signals.append(f"Mua: Giá {current_price:.2f} USD tại {current_time}. Lý do: Gần dải BB dưới (quá bán).")
 
             # Tín hiệu bán
             if last_row['close'] < last_row['MA50'] and last_row['MACD'] < last_row['Signal'] and last_row['RSI'] > 70:
-             signals.append(f"Bán: Giá {current_price:.2f} USD tại {current_time}. Lý do: Cắt MA50, MACD giảm và RSI trên 70.")
+                signals.append(f"Bán: Giá {current_price:.2f} USD tại {current_time}. Lý do: Cắt MA50, MACD giảm và RSI trên 70.")
             elif last_row['close'] >= last_row['BB_Upper']:
-             signals.append(f"Bán: Giá {current_price:.2f} USD tại {current_time}. Lý do: Gần dải BB trên (quá mua).")
+                signals.append(f"Bán: Giá {current_price:.2f} USD tại {current_time}. Lý do: Gần dải BB trên (quá mua).")
 
-
-
-            # Gửi tín hiệu qua Telegram nếu có tín hiệu
+            # Gửi tín hiệu cho tất cả subscribers
             if signals:
                 signal_message = f"Tín hiệu tự động cho {symbol}:\n" + "\n".join(signals)
-                if symbol not in signal_history:
-                    signal_history[symbol] = []
-                signal_history[symbol].append({"signals": signals, "timestamp": last_row['timestamp']})
-                await context.bot.send_message(chat_id=context.job.chat_id, text=signal_message)
+                for chat_id in subscribers:
+                    await context.bot.send_message(chat_id=chat_id, text=signal_message)
     except Exception as e:
         print(f"Error in monitor_signals: {e}")
+
 
 
 async def history(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -516,6 +544,8 @@ def main():
 
     # Đăng ký các handler
     application.add_handler(CommandHandler("start", start))
+    application.add_handler(CommandHandler("subscribe", subscribe))
+    application.add_handler(CommandHandler("unsubscribe", unsubscribe))
     application.add_handler(CommandHandler("chart", chart))
     application.add_handler(CommandHandler("signal", signal))
     application.add_handler(CommandHandler("history", history))
