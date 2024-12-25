@@ -156,16 +156,15 @@ async def chart(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         df['RSI'] = 100 - (100 / (1 + rs))
 
 
-        # Tạo biểu đồ
+       # Biểu đồ Candlestick và MACD được đặt riêng biệt
         fig = make_subplots(
-            rows=4,
+            rows=4,  # Tăng số lượng hàng lên 4 để tách MACD khỏi biểu đồ giá
             cols=1,
             shared_xaxes=True,
             vertical_spacing=0.03,
-            row_heights=[0.5, 0.3, 0.2],
-            specs=[[{"secondary_y": True}], [{}], [{}]]
+            row_heights=[0.5, 0.2, 0.2, 0.1],  # Cập nhật chiều cao từng hàng
+            specs=[[{"secondary_y": True}], [{}], [{}], [{}]]
         )
-
 
         # Candlestick và Bollinger Bands
         fig.add_trace(go.Candlestick(
@@ -177,7 +176,6 @@ async def chart(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             name="Candlestick"
         ), row=1, col=1, secondary_y=False)
 
-
         fig.add_trace(go.Scatter(
             x=df['timestamp'],
             y=df['BB_Upper'],
@@ -185,7 +183,6 @@ async def chart(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             line=dict(color='red', width=1),
             name='BB Upper'
         ), row=1, col=1, secondary_y=False)
-
 
         fig.add_trace(go.Scatter(
             x=df['timestamp'],
@@ -195,7 +192,6 @@ async def chart(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             name='BB Middle'
         ), row=1, col=1, secondary_y=False)
 
-
         fig.add_trace(go.Scatter(
             x=df['timestamp'],
             y=df['BB_Lower'],
@@ -203,7 +199,6 @@ async def chart(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             line=dict(color='green', width=1),
             name='BB Lower'
         ), row=1, col=1, secondary_y=False)
-
 
         # Biểu đồ khối lượng bên trục y2, cùng màu với giá
         volume_colors = [
@@ -217,14 +212,12 @@ async def chart(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             marker_color=volume_colors
         ), row=1, col=1, secondary_y=True)
 
-
-        # Biểu đồ MACD
+        # Biểu đồ MACD (được chuyển sang hàng 2)
         fig.add_trace(go.Bar(
             x=df['timestamp'],
             y=df['MACD_Hist'],
             name='MACD Histogram'
         ), row=2, col=1)
-
 
         fig.add_trace(go.Scatter(
             x=df['timestamp'],
@@ -234,7 +227,6 @@ async def chart(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             name='MACD'
         ), row=2, col=1)
 
-
         fig.add_trace(go.Scatter(
             x=df['timestamp'],
             y=df['Signal'],
@@ -243,8 +235,7 @@ async def chart(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             name='Signal'
         ), row=2, col=1)
 
-
-        # Biểu đồ RSI
+        # Biểu đồ RSI (hàng 3)
         fig.add_trace(go.Scatter(
             x=df['timestamp'],
             y=df['RSI'],
@@ -252,7 +243,6 @@ async def chart(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             line=dict(color='purple', width=1),
             name='RSI'
         ), row=3, col=1)
-
 
         # Đường giới hạn RSI
         fig.add_trace(go.Scatter(
@@ -263,7 +253,6 @@ async def chart(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             name='Overbought (70)'
         ), row=3, col=1)
 
-
         fig.add_trace(go.Scatter(
             x=df['timestamp'],
             y=[30] * len(df),
@@ -272,14 +261,14 @@ async def chart(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             name='Oversold (30)'
         ), row=3, col=1)
 
-
         # Layout
         fig.update_layout(
             title=f"{symbol} Technical Analysis Chart (1H)",
             template="plotly_dark",
-            height=1000,
+            height=1200,  # Tăng chiều cao biểu đồ tổng thể
             xaxis_rangeslider_visible=False
         )
+
 
 
         # Lưu biểu đồ thành HTML
