@@ -22,12 +22,16 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Gửi tin nhắn chào mừng và hướng dẫn."""
     await update.message.reply_text(
         "Chào mừng! Tôi là bot phân tích kỹ thuật của anh Hưng Thạnh đẹp trai.\n"
+        "Dưới đây là các lệnh bạn có thể sử dụng:\n"
         "Gõ /chart <mã giao dịch> để xem biểu đồ kỹ thuật (ví dụ: /chart BTC/USDT).\n"
         "Gõ /top để xem top 10 cặp giao dịch tăng và giảm mạnh nhất trong 1 giờ qua.\n"
         "Gõ /signal <mã giao dịch> để nhận tín hiệu mua bán và lưu lịch sử.\n"
         "Gõ /history để xem lịch sử tín hiệu.\n"
-        "Gõ /cap <mã giao dịch> để xem thông tin giá hiện tại."
+        "Gõ /cap <mã giao dịch> để xem thông tin giá hiện tại.\n"
+        "Gõ /subscribe để đăng ký nhận thông báo tự động.\n"
+        "Gõ /unsubscribe để hủy đăng ký nhận thông báo."
     )
+
 
 # File lưu danh sách subscribers
 SUBSCRIBERS_FILE = "subscribers.json"
@@ -553,26 +557,12 @@ def main():
     application.add_handler(CommandHandler("cap", current_price))  # Thêm handler cho /cap
     application.add_handler(CallbackQueryHandler(button))  # Thêm handler cho nút bấm từ /top
 
-    # Thiết lập danh sách lệnh bot
-    commands = [
-        ("start", "Bắt đầu và hướng dẫn sử dụng bot"),
-        ("subscribe", "Đăng ký nhận thông báo tự động"),
-        ("unsubscribe", "Huỷ đăng ký nhận thông báo"),
-        ("chart", "Xem biểu đồ kỹ thuật (ví dụ: /chart BTC/USDT)"),
-        ("signal", "Nhận tín hiệu mua bán (ví dụ: /signal BTC/USDT)"),
-        ("history", "Xem lịch sử tín hiệu"),
-        ("top", "Xem top 10 cặp giao dịch tăng và giảm mạnh nhất"),
-        ("cap", "Xem thông tin giá hiện tại (ví dụ: /cap BTC/USDT)")
-    ]
-    application.bot.set_my_commands(commands)
-
     # Chạy webhook
     application.run_webhook(
         listen="0.0.0.0",
         port=port,
         webhook_url=WEBHOOK_URL
     )
-
 
 if __name__ == "__main__":
     main()
