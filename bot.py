@@ -72,7 +72,7 @@ async def unsubscribe(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         await update.message.reply_text("Bạn chưa đăng ký trước đó.")
 
 async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Hiển thị thông tin giá hiện tại của một mã giao dịch."""
+    """Hiển thị thông tin giá hiện tại và khối lượng giao dịch của một mã giao dịch."""
     try:
         # Lấy mã giao dịch từ context.args
         symbol = context.args[0] if context.args else None
@@ -89,6 +89,7 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         ticker = exchange.fetch_ticker(symbol)
         current_price = ticker['last']
         percentage_change = ticker['percentage']
+        volume_24h = ticker['quoteVolume']  # Khối lượng giao dịch trong 24 giờ
         # Chuyển đổi timestamp sang giờ Việt Nam
         timestamp = (
             pd.to_datetime(ticker['timestamp'], unit='ms')
@@ -97,17 +98,19 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
             .strftime('%Y-%m-%d %H:%M:%S')
         )
 
-        # Gửi thông tin giá
+        # Gửi thông tin giá và khối lượng giao dịch
         message = (
             f"Thông tin giá hiện tại cho {symbol}:\n"
             f"- Giá hiện tại: {current_price:.2f} USD\n"
             f"- Biến động trong 1 giờ qua: {percentage_change:.2f}%\n"
+            f"- Khối lượng giao dịch 24 giờ: {volume_24h:.2f} USD\n"
             f"- Thời gian cập nhật: {timestamp}"
         )
         await update.message.reply_text(message)
 
     except Exception as e:
         await update.message.reply_text(f"Đã xảy ra lỗi: {e}")
+
 
 
 async def chart(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
