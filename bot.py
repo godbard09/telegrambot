@@ -375,8 +375,8 @@ async def signal(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             await update.message.reply_text("Vui lòng cung cấp mã giao dịch. Ví dụ: /signal BTC/USDT")
             return
 
-        timeframe = '1h'
-        limit = 200
+        timeframe = '1d'
+        limit = 500
 
         markets = exchange.load_markets()
         if symbol not in markets:
