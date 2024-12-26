@@ -361,7 +361,7 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 
 async def signal(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Phân tích và gửi tín hiệu mua bán tại thời điểm hiện tại và trong 1 tuần qua."""
+    """Phân tích và gửi tín hiệu mua bán."""
     try:
         # Lấy mã giao dịch từ context.args
         symbol = context.args[0] if context.args else None
@@ -370,7 +370,7 @@ async def signal(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             return
 
         timeframe = '1h'
-        limit = 500  # Tăng limit để lấy đủ dữ liệu trong 7 ngày
+        limit = 200
 
         # Kiểm tra xem mã giao dịch có hợp lệ không
         markets = exchange.load_markets()
@@ -385,6 +385,7 @@ async def signal(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
         # Tính toán các chỉ báo kỹ thuật
         df['MA50'] = df['close'].rolling(window=50).mean()
+        df['MA100'] = df['close'].rolling(window=100).mean()
         df['EMA12'] = df['close'].ewm(span=12).mean()
         df['EMA26'] = df['close'].ewm(span=26).mean()
         df['MACD'] = df['EMA12'] - df['EMA26']
@@ -398,51 +399,56 @@ async def signal(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         df['BB_Upper'] = df['BB_Middle'] + 2 * df['close'].rolling(window=20).std()
         df['BB_Lower'] = df['BB_Middle'] - 2 * df['close'].rolling(window=20).std()
 
-        # Phát hiện tín hiệu hiện tại
-        last_row = df.iloc[-1]
-        current_signals = []
+        # Phát hiện tín hiệu mua bán hiện tại
+        last_row = df.iloc[-1]  # Lấy dòng dữ liệu cuối cùng
+        signals_now = []
+
+        # Thời điểm và giá hiện tại
         current_time = last_row['timestamp']
         current_price = last_row['close']
 
+        # Tín hiệu mua
         if last_row['close'] > last_row['MA50'] and last_row['MACD'] > last_row['Signal'] and last_row['RSI'] < 30:
-            current_signals.append(f"Mua: Giá {current_price:.2f} USD tại {current_time}.")
+            signals_now.append(f"Mua: Giá {current_price:.2f} USD vào lúc {current_time}.")
         elif last_row['close'] <= last_row['BB_Lower']:
-            current_signals.append(f"Mua: Giá {current_price:.2f} USD tại {current_time}.")
+            signals_now.append(f"Mua: Giá {current_price:.2f} USD vào lúc {current_time}.")
+
+        # Tín hiệu bán
         if last_row['close'] < last_row['MA50'] and last_row['MACD'] < last_row['Signal'] and last_row['RSI'] > 70:
-            current_signals.append(f"Bán: Giá {current_price:.2f} USD tại {current_time}.")
+            signals_now.append(f"Bán: Giá {current_price:.2f} USD vào lúc {current_time}.")
         elif last_row['close'] >= last_row['BB_Upper']:
-            current_signals.append(f"Bán: Giá {current_price:.2f} USD tại {current_time}.")
+            signals_now.append(f"Bán: Giá {current_price:.2f} USD vào lúc {current_time}.")
 
-        # Gửi tín hiệu hiện tại
-        if current_signals:
-            await update.message.reply_text(f"Tín hiệu hiện tại cho {symbol}:\n" + "\n".join(current_signals))
-        else:
-            await update.message.reply_text(f"Không có tín hiệu rõ ràng tại thời điểm hiện tại cho {symbol}.")
+        # Phát hiện tín hiệu mua bán trong 7 ngày qua
+        signals_past = []
+        for index, row in df.iterrows():
+            if row['timestamp'] < (df['timestamp'].iloc[-1] - pd.Timedelta(days=7)):
+                continue
 
-        # Kiểm tra tín hiệu trong vòng 1 tuần qua
-        now = pd.Timestamp.utcnow()
-        last_week = df[df['timestamp'] >= now - pd.Timedelta(hours=168)]
-        historical_signals = []
-
-        for _, row in last_week.iterrows():
-            time = row['timestamp']
-            price = row['close']
             if row['close'] > row['MA50'] and row['MACD'] > row['Signal'] and row['RSI'] < 30:
-                historical_signals.append(f"Mua: Giá {price:.2f} USD tại {time}.")
+                signals_past.append(f"Mua: Giá {row['close']:.2f} USD vào lúc {row['timestamp']}.")
             elif row['close'] <= row['BB_Lower']:
-                historical_signals.append(f"Mua: Giá {price:.2f} USD tại {time}.")
-            if row['close'] < row['MA50'] and row['MACD'] < row['Signal'] and row['RSI'] > 70:
-                historical_signals.append(f"Bán: Giá {price:.2f} USD tại {time}.")
-            elif row['close'] >= row['BB_Upper']:
-                historical_signals.append(f"Bán: Giá {price:.2f} USD tại {time}.")
+                signals_past.append(f"Mua: Giá {row['close']:.2f} USD vào lúc {row['timestamp']}.")
 
-        # Gửi tín hiệu 1 tuần qua
-        if historical_signals:
-            await update.message.reply_text(
-                f"Tín hiệu trong vòng 1 tuần qua cho {symbol}:\n" + "\n".join(historical_signals)
-            )
+            if row['close'] < row['MA50'] and row['MACD'] < row['Signal'] and row['RSI'] > 70:
+                signals_past.append(f"Bán: Giá {row['close']:.2f} USD vào lúc {row['timestamp']}.")
+            elif row['close'] >= row['BB_Upper']:
+                signals_past.append(f"Bán: Giá {row['close']:.2f} USD vào lúc {row['timestamp']}.")
+
+        # Gửi tín hiệu qua Telegram
+        signal_message = f"Tín hiệu giao dịch cho {symbol}:
+"
+        if signals_now:
+            signal_message += "\nTín hiệu hiện tại:\n" + "\n".join(signals_now)
         else:
-            await update.message.reply_text(f"Không có tín hiệu rõ ràng trong 1 tuần qua cho {symbol}.")
+            signal_message += "\nHiện tại không có tín hiệu rõ ràng."
+
+        if signals_past:
+            signal_message += "\n\nTín hiệu trong 7 ngày qua:\n" + "\n".join(signals_past)
+        else:
+            signal_message += "\n\nKhông có tín hiệu trong 7 ngày qua."
+
+        await update.message.reply_text(signal_message)
 
     except Exception as e:
         await update.message.reply_text(f"Đã xảy ra lỗi: {e}")
