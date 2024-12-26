@@ -7,6 +7,7 @@ from plotly.subplots import make_subplots
 import os
 import asyncio
 import json
+import pytz
 
 # Token bot từ BotFather
 TOKEN = "8081244500:AAFkXKLfVoXQeqDYVW_HMdXluGELf9AWD3M"
@@ -26,7 +27,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         "Gõ /chart <mã giao dịch> để xem biểu đồ kỹ thuật (ví dụ: /chart BTC/USDT).\n"
         "Gõ /top để xem top 10 cặp giao dịch tăng và giảm mạnh nhất trong 1 giờ qua.\n"
         "Gõ /signal <mã giao dịch> để nhận tín hiệu mua bán và lưu lịch sử.\n"
-        "Gõ /history để xem lịch sử tín hiệu.\n"
         "Gõ /cap <mã giao dịch> để xem thông tin giá hiện tại.\n"
         "Gõ /subscribe để đăng ký nhận thông báo tự động.\n"
         "Gõ /unsubscribe để hủy đăng ký nhận thông báo."
@@ -47,6 +47,9 @@ def save_subscribers(subscribers):
         json.dump(subscribers, f)
 
 subscribers = load_subscribers()
+
+# Khởi tạo múi giờ Việt Nam
+vietnam_tz = pytz.timezone('Asia/Ho_Chi_Minh')
 
 async def subscribe(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Đăng ký nhận thông báo tự động."""
@@ -86,8 +89,13 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         ticker = exchange.fetch_ticker(symbol)
         current_price = ticker['last']
         percentage_change = ticker['percentage']
-        timestamp = pd.to_datetime(ticker['timestamp'], unit='ms').strftime('%Y-%m-%d %H:%M:%S')
-
+        # Chuyển đổi timestamp sang giờ Việt Nam
+        timestamp = (
+            pd.to_datetime(ticker['timestamp'], unit='ms')
+            .tz_localize('UTC')
+            .tz_convert(vietnam_tz)
+            .strftime('%Y-%m-%d %H:%M:%S')
+        )
 
         # Gửi thông tin giá
         message = (
@@ -105,28 +113,27 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 async def chart(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Tạo và gửi biểu đồ kỹ thuật."""
     try:
-        # Lấy mã giao dịch từ context.args hoặc callback_data
         symbol = context.args[0] if context.args else context.chat_data.get("symbol")
         if not symbol:
             await update.message.reply_text("Vui lòng cung cấp mã giao dịch. Ví dụ: /chart BTC/USDT")
             return
 
-
         timeframe = '1h'
         limit = 200
 
-
-        # Kiểm tra xem mã giao dịch có hợp lệ không
         markets = exchange.load_markets()
         if symbol not in markets:
             await update.message.reply_text(f"Mã giao dịch không hợp lệ: {symbol}. Vui lòng kiểm tra lại.")
             return
 
-
-        # Lấy dữ liệu từ KuCoin
         ohlcv = exchange.fetch_ohlcv(symbol, timeframe, limit=limit)
         df = pd.DataFrame(ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
-        df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
+        # Chuyển đổi timestamp sang giờ Việt Nam
+        df['timestamp'] = (
+            pd.to_datetime(df['timestamp'], unit='ms')
+            .dt.tz_localize('UTC')
+            .dt.tz_convert(vietnam_tz)
+        )
 
 
         # Tính toán các chỉ báo kỹ thuật
@@ -363,7 +370,6 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 async def signal(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Phân tích và gửi tín hiệu mua bán."""
     try:
-        # Lấy mã giao dịch từ context.args
         symbol = context.args[0] if context.args else None
         if not symbol:
             await update.message.reply_text("Vui lòng cung cấp mã giao dịch. Ví dụ: /signal BTC/USDT")
@@ -372,16 +378,21 @@ async def signal(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         timeframe = '1h'
         limit = 200
 
-        # Kiểm tra xem mã giao dịch có hợp lệ không
         markets = exchange.load_markets()
         if symbol not in markets:
             await update.message.reply_text(f"Mã giao dịch không hợp lệ: {symbol}. Vui lòng kiểm tra lại.")
             return
 
-        # Lấy dữ liệu từ KuCoin
         ohlcv = exchange.fetch_ohlcv(symbol, timeframe, limit=limit)
         df = pd.DataFrame(ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
-        df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
+        # Chuyển đổi timestamp sang giờ Việt Nam
+        df['timestamp'] = (
+            pd.to_datetime(df['timestamp'], unit='ms')
+            .dt.tz_localize('UTC')
+            .dt.tz_convert(vietnam_tz)
+        )
+
+    
 
         # Tính toán các chỉ báo kỹ thuật
         df['MA50'] = df['close'].rolling(window=50).mean()
@@ -520,22 +531,6 @@ async def monitor_signals(context: ContextTypes.DEFAULT_TYPE) -> None:
 
 
 
-async def history(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Hiển thị lịch sử tín hiệu giao dịch."""
-    if not signal_history:
-        await update.message.reply_text("Chưa có tín hiệu nào trong lịch sử.")
-        return
-
-
-    history_message = "Lịch sử tín hiệu giao dịch:\n"
-    for symbol, entries in signal_history.items():
-        history_message += f"\nMã giao dịch: {symbol}\n"
-        for entry in entries[-5:]:  # Hiển thị tối đa 5 tín hiệu gần nhất cho mỗi mã giao dịch
-            history_message += f"- Tín hiệu: {'; '.join(entry['signals'])}\n  Thời gian: {entry['timestamp']}\n"
-
-
-    await update.message.reply_text(history_message)
-
 async def start_monitoring(application: Application):
     """Khởi tạo job để theo dõi tín hiệu giao dịch."""
     job_queue = application.job_queue
@@ -559,7 +554,6 @@ def main():
     application.add_handler(CommandHandler("unsubscribe", unsubscribe))
     application.add_handler(CommandHandler("chart", chart))
     application.add_handler(CommandHandler("signal", signal))
-    application.add_handler(CommandHandler("history", history))
     application.add_handler(CommandHandler("top", top))  # Thêm handler cho /top
     application.add_handler(CommandHandler("cap", current_price))  # Thêm handler cho /cap
     application.add_handler(CallbackQueryHandler(button))  # Thêm handler cho nút bấm từ /top
