@@ -436,8 +436,7 @@ async def signal(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 signals_past.append(f"Bán: Giá {row['close']:.2f} USD vào lúc {row['timestamp']}.")
 
         # Gửi tín hiệu qua Telegram
-        signal_message = f"Tín hiệu giao dịch cho {symbol}:
-"
+        signal_message = f"Tín hiệu giao dịch cho {symbol}:\n"
         if signals_now:
             signal_message += "\nTín hiệu hiện tại:\n" + "\n".join(signals_now)
         else:
