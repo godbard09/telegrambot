@@ -390,9 +390,8 @@ async def signal(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             pd.to_datetime(df['timestamp'], unit='ms')
             .dt.tz_localize('UTC')
             .dt.tz_convert(vietnam_tz)
+            .dt.strftime('%Y-%m-%d %H:%M:%S')
         )
-
-    
 
         # Tính toán các chỉ báo kỹ thuật
         df['MA50'] = df['close'].rolling(window=50).mean()
