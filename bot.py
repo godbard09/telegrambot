@@ -370,7 +370,7 @@ async def signal(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             return
 
         timeframe = '1h'
-        limit = 500
+        limit = 200
 
         # Kiểm tra xem mã giao dịch có hợp lệ không
         markets = exchange.load_markets()
@@ -409,15 +409,15 @@ async def signal(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
         # Tín hiệu mua
         if last_row['close'] > last_row['MA50'] and last_row['MACD'] > last_row['Signal'] and last_row['RSI'] < 30:
-            signals_now.append(f"Mua: Giá {current_price:.2f} USD vào lúc {current_time}.")
+            signals_now.append(f"\U0001F7E2 Mua: Giá {current_price:.2f} USD vào lúc {current_time}.")
         elif last_row['close'] <= last_row['BB_Lower']:
-            signals_now.append(f"Mua: Giá {current_price:.2f} USD vào lúc {current_time}.")
+            signals_now.append(f"\U0001F7E2 Mua: Giá {current_price:.2f} USD vào lúc {current_time}.")
 
         # Tín hiệu bán
         if last_row['close'] < last_row['MA50'] and last_row['MACD'] < last_row['Signal'] and last_row['RSI'] > 70:
-            signals_now.append(f"Bán: Giá {current_price:.2f} USD vào lúc {current_time}.")
+            signals_now.append(f"\U0001F534 Bán: Giá {current_price:.2f} USD vào lúc {current_time}.")
         elif last_row['close'] >= last_row['BB_Upper']:
-            signals_now.append(f"Bán: Giá {current_price:.2f} USD vào lúc {current_time}.")
+            signals_now.append(f"\U0001F534 Bán: Giá {current_price:.2f} USD vào lúc {current_time}.")
 
         # Phát hiện tín hiệu mua bán trong 7 ngày qua
         signals_past = []
@@ -426,16 +426,17 @@ async def signal(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 continue
 
             profit_margin = ((current_price - row['close']) / row['close']) * 100
+            icon = "\U0001F7E2" if profit_margin > 0 else "\U0001F534"
 
             if row['close'] > row['MA50'] and row['MACD'] > row['Signal'] and row['RSI'] < 30:
-                signals_past.append(f"Mua: Giá {row['close']:.2f} USD vào lúc {row['timestamp']}. Biên lợi nhuận so với hiện tại: {profit_margin:.2f}%")
+                signals_past.append(f"\U0001F7E2 Mua: Giá {row['close']:.2f} USD vào lúc {row['timestamp']}. {icon} Lãi/Lỗ: {profit_margin:.2f}%")
             elif row['close'] <= row['BB_Lower']:
-                signals_past.append(f"Mua: Giá {row['close']:.2f} USD vào lúc {row['timestamp']}. Biên lợi nhuận so với hiện tại: {profit_margin:.2f}%")
+                signals_past.append(f"\U0001F7E2 Mua: Giá {row['close']:.2f} USD vào lúc {row['timestamp']}. {icon} Lãi/Lỗ: {profit_margin:.2f}%")
 
             if row['close'] < row['MA50'] and row['MACD'] < row['Signal'] and row['RSI'] > 70:
-                signals_past.append(f"Bán: Giá {row['close']:.2f} USD vào lúc {row['timestamp']}. Biên lợi nhuận so với hiện tại: {profit_margin:.2f}%")
+                signals_past.append(f"\U0001F534 Bán: Giá {row['close']:.2f} USD vào lúc {row['timestamp']}. {icon} Lãi/Lỗ: {profit_margin:.2f}%")
             elif row['close'] >= row['BB_Upper']:
-                signals_past.append(f"Bán: Giá {row['close']:.2f} USD vào lúc {row['timestamp']}. Biên lợi nhuận so với hiện tại: {profit_margin:.2f}%")
+                signals_past.append(f"\U0001F534 Bán: Giá {row['close']:.2f} USD vào lúc {row['timestamp']}. {icon} Lãi/Lỗ: {profit_margin:.2f}%")
 
         # Gửi tín hiệu qua Telegram
         signal_message = f"Tín hiệu giao dịch cho {symbol}:\n"
@@ -453,7 +454,6 @@ async def signal(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     except Exception as e:
         await update.message.reply_text(f"Đã xảy ra lỗi: {e}")
-
 
 
 
