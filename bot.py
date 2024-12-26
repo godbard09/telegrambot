@@ -72,7 +72,7 @@ async def unsubscribe(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         await update.message.reply_text("Bạn chưa đăng ký trước đó.")
 
 async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Hiển thị thông tin giá hiện tại và khối lượng giao dịch của một mã giao dịch."""
+    """Hiển thị thông tin giá hiện tại và khối lượng giao dịch trong 1 giờ qua."""
     try:
         # Lấy mã giao dịch từ context.args
         symbol = context.args[0] if context.args else None
@@ -86,10 +86,15 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
             await update.message.reply_text(f"Mã giao dịch không hợp lệ: {symbol}. Vui lòng kiểm tra lại.")
             return
 
+        # Lấy giá hiện tại từ ticker
         ticker = exchange.fetch_ticker(symbol)
         current_price = ticker['last']
         percentage_change = ticker['percentage']
-        volume_24h = ticker['quoteVolume']  # Khối lượng giao dịch trong 24 giờ
+
+        # Lấy khối lượng giao dịch trong 1 giờ qua từ OHLCV
+        ohlcv = exchange.fetch_ohlcv(symbol, timeframe='1h', limit=1)  # Lấy 1 nến cuối
+        volume_1h = ohlcv[-1][5]  # Giá trị volume từ nến cuối cùng
+
         # Chuyển đổi timestamp sang giờ Việt Nam
         timestamp = (
             pd.to_datetime(ticker['timestamp'], unit='ms')
@@ -103,13 +108,14 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
             f"Thông tin giá hiện tại cho {symbol}:\n"
             f"- Giá hiện tại: {current_price:.2f} USD\n"
             f"- Biến động trong 1 giờ qua: {percentage_change:.2f}%\n"
-            f"- Khối lượng giao dịch 24 giờ: {volume_24h:.2f} USD\n"
+            f"- Khối lượng giao dịch trong 1 giờ qua: {volume_1h:.2f} USD\n"
             f"- Thời gian cập nhật: {timestamp}"
         )
         await update.message.reply_text(message)
 
     except Exception as e:
         await update.message.reply_text(f"Đã xảy ra lỗi: {e}")
+
 
 
 
