@@ -72,30 +72,26 @@ async def unsubscribe(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         await update.message.reply_text("Bạn chưa đăng ký trước đó.")
 
 async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Hiển thị thông tin giá hiện tại và khối lượng giao dịch trong 1 giờ qua."""
     try:
-        # Lấy mã giao dịch từ context.args
         symbol = context.args[0] if context.args else None
         if not symbol:
             await update.message.reply_text("Vui lòng cung cấp mã giao dịch. Ví dụ: /cap BTC/USDT")
             return
 
-        # Lấy thông tin ticker từ KuCoin
         markets = exchange.load_markets()
         if symbol not in markets:
             await update.message.reply_text(f"Mã giao dịch không hợp lệ: {symbol}. Vui lòng kiểm tra lại.")
             return
 
-        # Lấy giá hiện tại từ ticker
         ticker = exchange.fetch_ticker(symbol)
         current_price = ticker['last']
         percentage_change = ticker['percentage']
 
-        # Lấy khối lượng giao dịch trong 1 giờ qua từ OHLCV
-        ohlcv = exchange.fetch_ohlcv(symbol, timeframe='1h', limit=1)  # Lấy 1 nến cuối
-        volume_1h = ohlcv[-1][5]  # Giá trị volume từ nến cuối cùng
+        # Sử dụng OHLCV để tính khối lượng giao dịch trong 1 giờ qua
+        ohlcv = exchange.fetch_ohlcv(symbol, timeframe='1h', limit=1)
+        volume_1h = ohlcv[-1][5]  # Khối lượng tài sản
+        volume_in_usd = volume_1h * current_price  # Chuyển đổi sang USD
 
-        # Chuyển đổi timestamp sang giờ Việt Nam
         timestamp = (
             pd.to_datetime(ticker['timestamp'], unit='ms')
             .tz_localize('UTC')
@@ -103,12 +99,11 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
             .strftime('%Y-%m-%d %H:%M:%S')
         )
 
-        # Gửi thông tin giá và khối lượng giao dịch
         message = (
             f"Thông tin giá hiện tại cho {symbol}:\n"
             f"- Giá hiện tại: {current_price:.2f} USD\n"
             f"- Biến động trong 1 giờ qua: {percentage_change:.2f}%\n"
-            f"- Khối lượng giao dịch trong 1 giờ qua: {volume_1h:.2f} USD\n"
+            f"- Khối lượng giao dịch trong 1 giờ qua: {volume_in_usd:.2f} USD\n"
             f"- Thời gian cập nhật: {timestamp}"
         )
         await update.message.reply_text(message)
@@ -314,18 +309,26 @@ async def top(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Gửi danh sách top 10 cặp giao dịch tăng, giảm mạnh nhất và có khối lượng lớn nhất trong 1 giờ qua."""
     try:
         # Lấy dữ liệu thị trường từ KuCoin
-        markets = exchange.fetch_tickers()
+        markets = exchange.load_markets()
         data = []
         volume_data = []
 
-        # Tính toán phần trăm biến động giá và khối lượng giao dịch
-        for symbol, ticker in markets.items():
-            change = ticker.get('percentage')
-            volume = ticker.get('quoteVolume')
-            if change is not None:
-                data.append((symbol, change))
-            if volume is not None:
-                volume_data.append((symbol, volume))
+        # Tính toán phần trăm biến động giá
+        for symbol in markets.keys():
+            try:
+                # Lấy ticker để tính phần trăm biến động
+                ticker = exchange.fetch_ticker(symbol)
+                change = ticker.get('percentage')
+                if change is not None:
+                    data.append((symbol, change))
+
+                # Lấy khối lượng giao dịch từ OHLCV
+                ohlcv = exchange.fetch_ohlcv(symbol, timeframe='1h', limit=1)  # Lấy nến 1 giờ cuối
+                if ohlcv:
+                    volume_1h = ohlcv[-1][5]  # Giá trị volume từ nến cuối
+                    volume_data.append((symbol, volume_1h))
+            except Exception as e:
+                print(f"Lỗi khi lấy dữ liệu cho {symbol}: {e}")
 
         # Lấy top 10 tăng và giảm mạnh nhất
         top_gainers = sorted(data, key=lambda x: x[1], reverse=True)[:10]
@@ -371,6 +374,7 @@ async def top(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         )
     except Exception as e:
         await update.message.reply_text(f"Đã xảy ra lỗi: {e}")
+
 
 
 async def button(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
