@@ -311,24 +311,28 @@ async def chart(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 
 async def top(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Gửi danh sách top 10 cặp giao dịch tăng và giảm mạnh nhất với nút tương tác."""
+    """Gửi danh sách top 10 cặp giao dịch tăng, giảm mạnh nhất và có khối lượng lớn nhất trong 1 giờ qua."""
     try:
         # Lấy dữ liệu thị trường từ KuCoin
         markets = exchange.fetch_tickers()
         data = []
+        volume_data = []
 
-
-        # Tính toán phần trăm biến động giá
+        # Tính toán phần trăm biến động giá và khối lượng giao dịch
         for symbol, ticker in markets.items():
             change = ticker.get('percentage')
+            volume = ticker.get('quoteVolume')
             if change is not None:
                 data.append((symbol, change))
-
+            if volume is not None:
+                volume_data.append((symbol, volume))
 
         # Lấy top 10 tăng và giảm mạnh nhất
         top_gainers = sorted(data, key=lambda x: x[1], reverse=True)[:10]
         top_losers = sorted(data, key=lambda x: x[1])[:10]
 
+        # Lấy top 10 cặp có khối lượng lớn nhất
+        top_volumes = sorted(volume_data, key=lambda x: x[1], reverse=True)[:10]
 
         # Tạo danh sách nút tương tác cho top tăng
         gainers_keyboard = [
@@ -336,13 +340,17 @@ async def top(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             for symbol, change in top_gainers
         ]
 
-
         # Tạo danh sách nút tương tác cho top giảm
         losers_keyboard = [
             [InlineKeyboardButton(f"{symbol}: {change:.2f}%", callback_data=symbol)]
             for symbol, change in top_losers
         ]
 
+        # Tạo danh sách nút tương tác cho top khối lượng lớn nhất
+        volumes_keyboard = [
+            [InlineKeyboardButton(f"{symbol}: {volume:.2f} USD", callback_data=symbol)]
+            for symbol, volume in top_volumes
+        ]
 
         # Gửi danh sách top tăng mạnh nhất
         await update.message.reply_text(
@@ -350,11 +358,16 @@ async def top(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             reply_markup=InlineKeyboardMarkup(gainers_keyboard)
         )
 
-
         # Gửi danh sách top giảm mạnh nhất
         await update.message.reply_text(
             "Top 10 cặp giao dịch giảm mạnh nhất trong 1 giờ qua:",
             reply_markup=InlineKeyboardMarkup(losers_keyboard)
+        )
+
+        # Gửi danh sách top khối lượng lớn nhất
+        await update.message.reply_text(
+            "Top 10 cặp giao dịch có khối lượng lớn nhất trong 1 giờ qua:",
+            reply_markup=InlineKeyboardMarkup(volumes_keyboard)
         )
     except Exception as e:
         await update.message.reply_text(f"Đã xảy ra lỗi: {e}")
