@@ -390,7 +390,6 @@ async def signal(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             pd.to_datetime(df['timestamp'], unit='ms')
             .dt.tz_localize('UTC')
             .dt.tz_convert(vietnam_tz)
-            .dt.strftime('%Y-%m-%d %H:%M:%S')
         )
 
         # Tính toán các chỉ báo kỹ thuật
@@ -414,7 +413,7 @@ async def signal(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         signals_now = []
 
         # Thời điểm và giá hiện tại
-        current_time = last_row['timestamp']
+        current_time = last_row['timestamp'].strftime('%Y-%m-%d %H:%M:%S')
         current_price = last_row['close']
 
         # Tín hiệu mua
@@ -439,14 +438,14 @@ async def signal(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             icon = "\U0001F7E2" if profit_margin > 0 else "\U0001F534"
 
             if row['close'] > row['MA50'] and row['MACD'] > row['Signal'] and row['RSI'] < 30:
-                signals_past.append(f"\U0001F7E2 Mua: Giá {row['close']:.2f} USD vào lúc {row['timestamp']}. {icon} Lãi/Lỗ: {profit_margin:.2f}%")
+                signals_past.append(f"\U0001F7E2 Mua: Giá {row['close']:.2f} USD vào lúc {row['timestamp'].strftime('%Y-%m-%d %H:%M:%S')}. {icon} Lãi/Lỗ: {profit_margin:.2f}%")
             elif row['close'] <= row['BB_Lower']:
-                signals_past.append(f"\U0001F7E2 Mua: Giá {row['close']:.2f} USD vào lúc {row['timestamp']}. {icon} Lãi/Lỗ: {profit_margin:.2f}%")
+                signals_past.append(f"\U0001F7E2 Mua: Giá {row['close']:.2f} USD vào lúc {row['timestamp'].strftime('%Y-%m-%d %H:%M:%S')}. {icon} Lãi/Lỗ: {profit_margin:.2f}%")
 
             if row['close'] < row['MA50'] and row['MACD'] < row['Signal'] and row['RSI'] > 70:
-                signals_past.append(f"\U0001F534 Bán: Giá {row['close']:.2f} USD vào lúc {row['timestamp']}. {icon} Lãi/Lỗ: {profit_margin:.2f}%")
+                signals_past.append(f"\U0001F534 Bán: Giá {row['close']:.2f} USD vào lúc {row['timestamp'].strftime('%Y-%m-%d %H:%M:%S')}. {icon} Lãi/Lỗ: {profit_margin:.2f}%")
             elif row['close'] >= row['BB_Upper']:
-                signals_past.append(f"\U0001F534 Bán: Giá {row['close']:.2f} USD vào lúc {row['timestamp']}. {icon} Lãi/Lỗ: {profit_margin:.2f}%")
+                signals_past.append(f"\U0001F534 Bán: Giá {row['close']:.2f} USD vào lúc {row['timestamp'].strftime('%Y-%m-%d %H:%M:%S')}. {icon} Lãi/Lỗ: {profit_margin:.2f}%")
 
         # Gửi tín hiệu qua Telegram
         signal_message = f"Tín hiệu giao dịch cho {symbol}:\n"
