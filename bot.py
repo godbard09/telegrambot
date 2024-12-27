@@ -97,7 +97,7 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
             .strftime('%Y-%m-%d %H:%M:%S')
         )
 
-        # Lấy dữ liệu OHLCV để tính toán
+        # Lấy dữ liệu OHLCV để tính toán chỉ báo
         timeframe = '6h'
         limit = 500
         ohlcv = exchange.fetch_ohlcv(symbol, timeframe, limit=limit)
@@ -108,25 +108,29 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
             .dt.tz_convert(vietnam_tz)
         )
 
-        # Tính toán các chỉ báo kỹ thuật
+        # Tính toán các chỉ báo kỹ thuật (đồng bộ logic với /signal)
         df['MA50'] = df['close'].rolling(window=50).mean()
         df['EMA12'] = df['close'].ewm(span=12).mean()
         df['EMA26'] = df['close'].ewm(span=26).mean()
         df['MACD'] = df['EMA12'] - df['EMA26']
         df['Signal'] = df['MACD'].ewm(span=9).mean()
-        df['RSI'] = 100 - (100 / (1 + (df['close'].diff().clip(lower=0).rolling(14).mean() /
-                                       df['close'].diff().clip(upper=0).abs().rolling(14).mean())))
+        delta = df['close'].diff()
+        gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
+        loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
+        rs = gain / loss
+        df['RSI'] = 100 - (100 / (1 + rs))
         df['BB_Middle'] = df['close'].rolling(window=20).mean()
         df['BB_Upper'] = df['BB_Middle'] + 2 * df['close'].rolling(window=20).std()
         df['BB_Lower'] = df['BB_Middle'] - 2 * df['close'].rolling(window=20).std()
 
-        # Tìm tín hiệu mới nhất trong 7 ngày qua
+        # Tìm tín hiệu mới nhất (đồng bộ logic với /signal)
         recent_signal = None
-        for _, row in df.iterrows():  # Duyệt từ đầu (mới nhất)
+        for index, row in df[::-1].iterrows():  # Duyệt từ cuối lên
+            # Giới hạn trong 7 ngày qua
             if row['timestamp'] < (df['timestamp'].iloc[-1] - pd.Timedelta(days=7)):
                 break
 
-            # Tín hiệu mua
+            # Kiểm tra tín hiệu mua
             if row['close'] > row['MA50'] and row['MACD'] > row['Signal'] and row['RSI'] < 30:
                 recent_signal = {
                     "type": "buy",
@@ -142,7 +146,7 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
                 }
                 break
 
-            # Tín hiệu bán
+            # Kiểm tra tín hiệu bán
             if row['close'] < row['MA50'] and row['MACD'] < row['Signal'] and row['RSI'] > 70:
                 recent_signal = {
                     "type": "sell",
@@ -187,6 +191,7 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
     except Exception as e:
         await update.message.reply_text(f"Đã xảy ra lỗi: {e}")
+
 
 
 async def chart(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
