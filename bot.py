@@ -74,7 +74,6 @@ async def unsubscribe(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     else:
         await update.message.reply_text("Bạn chưa đăng ký trước đó.")
 
-import re
 
 def escape_markdown(text: str) -> str:
     """Thoát các ký tự đặc biệt cho Markdown v2."""
@@ -134,24 +133,16 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
         # Xác định xu hướng
         trend = "Không xác định"
-        trend_icon = "❓"
-        trend_color = "❓"  # Mặc định màu không xác định
         if len(df) > 1:
             last_row = df.iloc[-1]  # Dữ liệu mới nhất
             prev_row = df.iloc[-2]  # Dữ liệu trước đó
 
             if last_row['close'] > last_row['MA50'] and last_row['close'] > last_row['MA100'] and last_row['MA50'] > prev_row['MA50']:
-                trend = "Tăng"
-                trend_icon = "🔺"
-                trend_color = "🟢 Tăng"  # Màu xanh lá cây
+                trend = "**TĂNG**"
             elif last_row['close'] < last_row['MA50'] and last_row['close'] < last_row['MA100'] and last_row['MA50'] < prev_row['MA50']:
-                trend = "Giảm"
-                trend_icon = "🔻"
-                trend_color = "🔴 Giảm"  # Màu đỏ
+                trend = "**GIẢM**"
             else:
-                trend = "Đi ngang"
-                trend_icon = "🟡"
-                trend_color = "🟡 Đi ngang"  # Màu vàng
+                trend = "**ĐI NGANG**"
 
         # Tìm tín hiệu mới nhất (logic như trước)
         recent_signal = None
@@ -164,7 +155,7 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
                 if max_timestamp is None or row['timestamp'] > max_timestamp:
                     max_timestamp = row['timestamp']
                     recent_signal = {
-                        "type": "buy",
+                        "type": "MUA",
                         "price": row['close'],
                         "timestamp": row['timestamp'].strftime('%Y-%m-%d %H:%M:%S')
                     }
@@ -172,7 +163,7 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
                 if max_timestamp is None or row['timestamp'] > max_timestamp:
                     max_timestamp = row['timestamp']
                     recent_signal = {
-                        "type": "buy",
+                        "type": "MUA",
                         "price": row['close'],
                         "timestamp": row['timestamp'].strftime('%Y-%m-%d %H:%M:%S')
                     }
@@ -180,7 +171,7 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
                 if max_timestamp is None or row['timestamp'] > max_timestamp:
                     max_timestamp = row['timestamp']
                     recent_signal = {
-                        "type": "sell",
+                        "type": "BÁN",
                         "price": row['close'],
                         "timestamp": row['timestamp'].strftime('%Y-%m-%d %H:%M:%S')
                     }
@@ -188,7 +179,7 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
                 if max_timestamp is None or row['timestamp'] > max_timestamp:
                     max_timestamp = row['timestamp']
                     recent_signal = {
-                        "type": "sell",
+                        "type": "BÁN",
                         "price": row['close'],
                         "timestamp": row['timestamp'].strftime('%Y-%m-%d %H:%M:%S')
                     }
@@ -196,26 +187,26 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         # Chuẩn bị thông tin vị thế
         position_info = "Không có tín hiệu mua/bán trong 7 ngày qua."
         if recent_signal:
-            signal_type = "Mua" if recent_signal['type'] == 'buy' else "Bán"
+            signal_type = f"**{recent_signal['type']}**"  # In đậm và viết hoa MUA/BÁN
             signal_price = recent_signal['price']
             signal_time = recent_signal['timestamp']
-            profit_loss = ((current_price - signal_price) / signal_price) * 100 if recent_signal['type'] == 'buy' else (
+            profit_loss = ((current_price - signal_price) / signal_price) * 100 if recent_signal['type'] == 'MUA' else (
                 (signal_price - current_price) / signal_price) * 100
 
-            # Thêm icon cho lãi/lỗ
+            # Thêm icon sau lãi/lỗ
             if profit_loss > 0:
-                profit_color = f"🟢 {profit_loss:.2f}%"
+                profit_color = f"{profit_loss:.2f}% 🟢"
             elif profit_loss < 0:
-                profit_color = f"🔴 {profit_loss:.2f}%"
+                profit_color = f"{profit_loss:.2f}% 🔴"
             else:
-                profit_color = f"🟡 {profit_loss:.2f}%"
+                profit_color = f"{profit_loss:.2f}% 🟡"
 
             position_info = (
                 f"- Vị thế hiện tại: {signal_type}\n"
-                f"- Ngày {signal_type.lower()}: {signal_time}\n"
-                f"- Giá {signal_type.lower()}: {signal_price:.2f} USD\n"
+                f"- Ngày {recent_signal['type'].lower()}: {signal_time}\n"
+                f"- Giá {recent_signal['type'].lower()}: {signal_price:.2f} USD\n"
                 f"- Lãi/Lỗ: {profit_color}\n"
-                f"- Xu hướng: {trend_color}"
+                f"- Xu hướng: {trend}"
             )
 
         # Escape Markdown và tạo thông báo trả về
