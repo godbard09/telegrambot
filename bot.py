@@ -313,7 +313,6 @@ async def top(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         data = []
         volume_data = []
 
-        # Tính toán phần trăm biến động giá
         for symbol in markets.keys():
             try:
                 # Lấy ticker để tính phần trăm biến động
@@ -322,11 +321,13 @@ async def top(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 if change is not None:
                     data.append((symbol, change))
 
-                # Lấy khối lượng giao dịch từ OHLCV
-                ohlcv = exchange.fetch_ohlcv(symbol, timeframe='1h', limit=1)  # Lấy nến 1 giờ cuối
+                # Lấy khối lượng giao dịch từ OHLCV và chuyển đổi sang USD
+                ohlcv = exchange.fetch_ohlcv(symbol, timeframe='1h', limit=1)
                 if ohlcv:
-                    volume_1h = ohlcv[-1][5]  # Giá trị volume từ nến cuối
-                    volume_data.append((symbol, volume_1h))
+                    volume_asset = ohlcv[-1][5]
+                    price = ticker['last']
+                    volume_usd = volume_asset * price
+                    volume_data.append((symbol, volume_usd))
             except Exception as e:
                 print(f"Lỗi khi lấy dữ liệu cho {symbol}: {e}")
 
@@ -335,45 +336,32 @@ async def top(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         top_losers = sorted(data, key=lambda x: x[1])[:10]
 
         # Lấy top 10 cặp có khối lượng lớn nhất
-        top_volumes = sorted(volume_data, key=lambda x: x[1], reverse=True)[:10]
-
-        # Tạo danh sách nút tương tác cho top tăng
-        gainers_keyboard = [
-            [InlineKeyboardButton(f"{symbol}: +{change:.2f}%", callback_data=symbol)]
-            for symbol, change in top_gainers
-        ]
-
-        # Tạo danh sách nút tương tác cho top giảm
-        losers_keyboard = [
-            [InlineKeyboardButton(f"{symbol}: {change:.2f}%", callback_data=symbol)]
-            for symbol, change in top_losers
-        ]
-
-        # Tạo danh sách nút tương tác cho top khối lượng lớn nhất
-        volumes_keyboard = [
-            [InlineKeyboardButton(f"{symbol}: {volume:.2f} USD", callback_data=symbol)]
-            for symbol, volume in top_volumes
-        ]
+        top_volumes = sorted(
+            [(symbol, volume) for symbol, volume in volume_data if volume > 0], 
+            key=lambda x: x[1], 
+            reverse=True
+        )[:10]
 
         # Gửi danh sách top tăng mạnh nhất
         await update.message.reply_text(
-            "Top 10 cặp giao dịch tăng mạnh nhất trong 1 giờ qua:",
-            reply_markup=InlineKeyboardMarkup(gainers_keyboard)
+            "Top 10 cặp giao dịch tăng mạnh nhất trong 1 giờ qua:\n" +
+            "\n".join([f"{symbol}: +{change:.2f}%" for symbol, change in top_gainers])
         )
 
         # Gửi danh sách top giảm mạnh nhất
         await update.message.reply_text(
-            "Top 10 cặp giao dịch giảm mạnh nhất trong 1 giờ qua:",
-            reply_markup=InlineKeyboardMarkup(losers_keyboard)
+            "Top 10 cặp giao dịch giảm mạnh nhất trong 1 giờ qua:\n" +
+            "\n".join([f"{symbol}: {change:.2f}%" for symbol, change in top_losers])
         )
 
         # Gửi danh sách top khối lượng lớn nhất
         await update.message.reply_text(
-            "Top 10 cặp giao dịch có khối lượng lớn nhất trong 1 giờ qua:",
-            reply_markup=InlineKeyboardMarkup(volumes_keyboard)
+            "Top 10 cặp giao dịch có khối lượng lớn nhất trong 1 giờ qua:\n" +
+            "\n".join([f"{symbol}: {volume:.2f} USD" for symbol, volume in top_volumes])
         )
     except Exception as e:
         await update.message.reply_text(f"Đã xảy ra lỗi: {e}")
+
 
 
 
