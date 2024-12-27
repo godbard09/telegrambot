@@ -104,21 +104,24 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         # Kiểm tra tín hiệu gần nhất từ signal_history
         signal = signal_history.get(symbol, None)
         if signal:
-            position = signal.get('type')  # "buy" hoặc "sell"
-            entry_price = signal.get('price')
-            entry_time = signal.get('time')
+            position = signal.get('type', 'N/A')  # "buy" hoặc "sell"
+            entry_price = signal.get('price', None)
+            entry_time = signal.get('time', 'N/A')
 
-            # Tính lãi/lỗ
-            profit_loss = ((current_price - entry_price) / entry_price) * 100 if position == 'buy' else \
-                          ((entry_price - current_price) / entry_price) * 100
+            if entry_price is not None:
+                # Tính lãi/lỗ
+                profit_loss = ((current_price - entry_price) / entry_price) * 100 if position == 'buy' else \
+                              ((entry_price - current_price) / entry_price) * 100
 
-            # Tạo thông tin vị thế
-            position_info = (
-                f"- Vị thế hiện tại: {'Mua' if position == 'buy' else 'Bán'}\n"
-                f"- Giá vào lệnh: {entry_price:.2f} USD\n"
-                f"- Lãi/Lỗ: {profit_loss:.2f}%\n"
-                f"- Thời gian tín hiệu: {entry_time}"
-            )
+                # Tạo thông tin vị thế
+                position_info = (
+                    f"- Vị thế hiện tại: {'Mua' if position == 'buy' else 'Bán'}\n"
+                    f"- Giá vào lệnh: {entry_price:.2f} USD\n"
+                    f"- Lãi/Lỗ: {profit_loss:.2f}%\n"
+                    f"- Thời gian tín hiệu: {entry_time}"
+                )
+            else:
+                position_info = "- Dữ liệu tín hiệu không đầy đủ."
         else:
             position_info = "- Không có tín hiệu gần đây."
 
@@ -135,6 +138,7 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
     except Exception as e:
         await update.message.reply_text(f"Đã xảy ra lỗi: {e}")
+
 
 
 async def chart(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
