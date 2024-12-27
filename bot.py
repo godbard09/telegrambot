@@ -97,7 +97,7 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
             .strftime('%Y-%m-%d %H:%M:%S')
         )
 
-        # Lấy dữ liệu OHLCV để tính toán chỉ báo
+        # Lấy dữ liệu OHLCV để tính toán
         timeframe = '6h'
         limit = 500
         ohlcv = exchange.fetch_ohlcv(symbol, timeframe, limit=limit)
@@ -123,44 +123,49 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         df['BB_Upper'] = df['BB_Middle'] + 2 * df['close'].rolling(window=20).std()
         df['BB_Lower'] = df['BB_Middle'] - 2 * df['close'].rolling(window=20).std()
 
-        # Tìm tín hiệu mới nhất (bắt đầu từ cuối DataFrame)
+        # Tìm tín hiệu mới nhất trong 7 ngày qua
         recent_signal = None
-        for _, row in df.iloc[::-1].iterrows():  # Duyệt từ dòng cuối (mới nhất)
+        max_timestamp = None  # Biến lưu trữ thời gian lớn nhất
+        for _, row in df.iterrows():
             # Giới hạn tín hiệu trong 7 ngày qua
             if row['timestamp'] < (df['timestamp'].iloc[-1] - pd.Timedelta(days=7)):
-                break
+                continue
 
             # Tín hiệu mua
             if row['close'] > row['MA50'] and row['MACD'] > row['Signal'] and row['RSI'] < 30:
-                recent_signal = {
-                    "type": "buy",
-                    "price": row['close'],
-                    "timestamp": row['timestamp'].strftime('%Y-%m-%d %H:%M:%S')
-                }
-                break  # Dừng ngay khi tìm thấy tín hiệu mới nhất
+                if max_timestamp is None or row['timestamp'] > max_timestamp:
+                    max_timestamp = row['timestamp']
+                    recent_signal = {
+                        "type": "buy",
+                        "price": row['close'],
+                        "timestamp": row['timestamp'].strftime('%Y-%m-%d %H:%M:%S')
+                    }
             elif row['close'] <= row['BB_Lower']:
-                recent_signal = {
-                    "type": "buy",
-                    "price": row['close'],
-                    "timestamp": row['timestamp'].strftime('%Y-%m-%d %H:%M:%S')
-                }
-                break  # Dừng ngay khi tìm thấy tín hiệu mới nhất
+                if max_timestamp is None or row['timestamp'] > max_timestamp:
+                    max_timestamp = row['timestamp']
+                    recent_signal = {
+                        "type": "buy",
+                        "price": row['close'],
+                        "timestamp": row['timestamp'].strftime('%Y-%m-%d %H:%M:%S')
+                    }
 
             # Tín hiệu bán
             if row['close'] < row['MA50'] and row['MACD'] < row['Signal'] and row['RSI'] > 70:
-                recent_signal = {
-                    "type": "sell",
-                    "price": row['close'],
-                    "timestamp": row['timestamp'].strftime('%Y-%m-%d %H:%M:%S')
-                }
-                break  # Dừng ngay khi tìm thấy tín hiệu mới nhất
+                if max_timestamp is None or row['timestamp'] > max_timestamp:
+                    max_timestamp = row['timestamp']
+                    recent_signal = {
+                        "type": "sell",
+                        "price": row['close'],
+                        "timestamp": row['timestamp'].strftime('%Y-%m-%d %H:%M:%S')
+                    }
             elif row['close'] >= row['BB_Upper']:
-                recent_signal = {
-                    "type": "sell",
-                    "price": row['close'],
-                    "timestamp": row['timestamp'].strftime('%Y-%m-%d %H:%M:%S')
-                }
-                break  # Dừng ngay khi tìm thấy tín hiệu mới nhất
+                if max_timestamp is None or row['timestamp'] > max_timestamp:
+                    max_timestamp = row['timestamp']
+                    recent_signal = {
+                        "type": "sell",
+                        "price": row['close'],
+                        "timestamp": row['timestamp'].strftime('%Y-%m-%d %H:%M:%S')
+                    }
 
         # Chuẩn bị thông tin vị thế
         position_info = "Không có tín hiệu mua/bán trong 7 ngày qua."
