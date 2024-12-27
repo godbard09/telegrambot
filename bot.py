@@ -97,14 +97,68 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
             .strftime('%Y-%m-%d %H:%M:%S')
         )
 
-        # Lấy tín hiệu mua/bán gần nhất trong 7 ngày qua từ lịch sử tín hiệu
-        signals_past = signal_history.get(symbol, [])  # Sử dụng lịch sử tín hiệu toàn cục
-        recent_signal = None
+        # Lấy dữ liệu OHLCV để tính toán chỉ báo kỹ thuật và tìm tín hiệu
+        timeframe = '6h'
+        limit = 500
+        ohlcv = exchange.fetch_ohlcv(symbol, timeframe, limit=limit)
+        df = pd.DataFrame(ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
+        df['timestamp'] = (
+            pd.to_datetime(df['timestamp'], unit='ms')
+            .dt.tz_localize('UTC')
+            .dt.tz_convert(vietnam_tz)
+        )
 
-        for signal in reversed(signals_past):  # Duyệt ngược để lấy tín hiệu gần nhất
-            signal_time = pd.to_datetime(signal['timestamp'])
-            if signal_time >= (pd.Timestamp.now() - pd.Timedelta(days=7)):
-                recent_signal = signal
+        # Tính toán các chỉ báo kỹ thuật
+        df['MA50'] = df['close'].rolling(window=50).mean()
+        df['MA100'] = df['close'].rolling(window=100).mean()
+        df['EMA12'] = df['close'].ewm(span=12).mean()
+        df['EMA26'] = df['close'].ewm(span=26).mean()
+        df['MACD'] = df['EMA12'] - df['EMA26']
+        df['Signal'] = df['MACD'].ewm(span=9).mean()
+        delta = df['close'].diff()
+        gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
+        loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
+        rs = gain / loss
+        df['RSI'] = 100 - (100 / (1 + rs))
+        df['BB_Middle'] = df['close'].rolling(window=20).mean()
+        df['BB_Upper'] = df['BB_Middle'] + 2 * df['close'].rolling(window=20).std()
+        df['BB_Lower'] = df['BB_Middle'] - 2 * df['close'].rolling(window=20).std()
+
+        # Tìm tín hiệu gần nhất trong 7 ngày qua
+        recent_signal = None
+        for _, row in df.iterrows():
+            if row['timestamp'] < (df['timestamp'].iloc[-1] - pd.Timedelta(days=7)):
+                continue
+
+            # Xác định tín hiệu mua
+            if row['close'] > row['MA50'] and row['MACD'] > row['Signal'] and row['RSI'] < 30:
+                recent_signal = {
+                    "type": "buy",
+                    "price": row['close'],
+                    "timestamp": row['timestamp'].strftime('%Y-%m-%d %H:%M:%S')
+                }
+            elif row['close'] <= row['BB_Lower']:
+                recent_signal = {
+                    "type": "buy",
+                    "price": row['close'],
+                    "timestamp": row['timestamp'].strftime('%Y-%m-%d %H:%M:%S')
+                }
+
+            # Xác định tín hiệu bán
+            if row['close'] < row['MA50'] and row['MACD'] < row['Signal'] and row['RSI'] > 70:
+                recent_signal = {
+                    "type": "sell",
+                    "price": row['close'],
+                    "timestamp": row['timestamp'].strftime('%Y-%m-%d %H:%M:%S')
+                }
+            elif row['close'] >= row['BB_Upper']:
+                recent_signal = {
+                    "type": "sell",
+                    "price": row['close'],
+                    "timestamp": row['timestamp'].strftime('%Y-%m-%d %H:%M:%S')
+                }
+
+            if recent_signal:
                 break
 
         # Chuẩn bị thông tin vị thế
@@ -114,7 +168,7 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
             signal_price = recent_signal['price']
             signal_time = recent_signal['timestamp']
             profit_loss = ((current_price - signal_price) / signal_price) * 100 if recent_signal['type'] == 'buy' else (
-                    (signal_price - current_price) / signal_price) * 100
+                (signal_price - current_price) / signal_price) * 100
 
             position_info = (
                 f"- Vị thế hiện tại: {signal_type}\n"
@@ -136,10 +190,6 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
     except Exception as e:
         await update.message.reply_text(f"Đã xảy ra lỗi: {e}")
-
-
-
-
 
 
 async def chart(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
