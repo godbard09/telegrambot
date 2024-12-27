@@ -147,6 +147,7 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         # Tìm tín hiệu mới nhất (logic như trước)
         recent_signal = None
         max_timestamp = None
+        now = pd.Timestamp.now(tz=vietnam_tz)  # Thời gian hiện tại theo múi giờ Việt Nam
         for _, row in df.iterrows():
             if row['timestamp'] < (now - pd.Timedelta(days=7)):
                 continue
@@ -649,6 +650,7 @@ async def signal(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
         # Phát hiện tín hiệu mua bán trong 7 ngày qua
         signals_past = []
+        now = pd.Timestamp.now(tz=vietnam_tz)  # Thời gian hiện tại theo múi giờ Việt Nam
         for index, row in df.iterrows():
             if row['timestamp'] < (now - pd.Timedelta(days=7)):
                 continue
