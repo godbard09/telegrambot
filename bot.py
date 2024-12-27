@@ -202,11 +202,11 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
                 profit_color = f"{profit_loss:.2f}% 🟡"
 
             position_info = (
+                f"- Xu hướng: {trend}\n"
                 f"- Vị thế hiện tại: {signal_type}\n"
                 f"- Ngày {recent_signal['type'].lower()}: {signal_time}\n"
                 f"- Giá {recent_signal['type'].lower()}: {signal_price:.2f} USD\n"
-                f"- Lãi/Lỗ: {profit_color}\n"
-                f"- Xu hướng: {trend}"
+                f"- Lãi/Lỗ: {profit_color}"
             )
 
         # Escape Markdown và tạo thông báo trả về
@@ -222,6 +222,7 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
     except Exception as e:
         await update.message.reply_text(f"Đã xảy ra lỗi: {e}")
+
 
 
 async def chart(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
