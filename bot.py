@@ -110,6 +110,7 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
         # Tính toán các chỉ báo kỹ thuật
         df['MA50'] = df['close'].rolling(window=50).mean()
+        df['MA100'] = df['close'].rolling(window=100).mean()
         df['EMA12'] = df['close'].ewm(span=12).mean()
         df['EMA26'] = df['close'].ewm(span=26).mean()
         df['MACD'] = df['EMA12'] - df['EMA26']
@@ -123,15 +124,34 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         df['BB_Upper'] = df['BB_Middle'] + 2 * df['close'].rolling(window=20).std()
         df['BB_Lower'] = df['BB_Middle'] - 2 * df['close'].rolling(window=20).std()
 
-        # Tìm tín hiệu mới nhất trong 7 ngày qua
+        # Xác định xu hướng
+        trend = "Không xác định"
+        trend_icon = "❓"
+        trend_color = "❓"  # Mặc định màu không xác định
+        if len(df) > 1:
+            last_row = df.iloc[-1]  # Dữ liệu mới nhất
+            prev_row = df.iloc[-2]  # Dữ liệu trước đó
+
+            if last_row['close'] > last_row['MA50'] and last_row['close'] > last_row['MA100'] and last_row['MA50'] > prev_row['MA50']:
+                trend = "Tăng"
+                trend_icon = "🔺"
+                trend_color = "🟢 Tăng"  # Màu xanh lá cây
+            elif last_row['close'] < last_row['MA50'] and last_row['close'] < last_row['MA100'] and last_row['MA50'] < prev_row['MA50']:
+                trend = "Giảm"
+                trend_icon = "🔻"
+                trend_color = "🔴 Giảm"  # Màu đỏ
+            else:
+                trend = "Đi ngang"
+                trend_icon = "🟡"
+                trend_color = "🟡 Đi ngang"  # Màu vàng
+
+        # Tìm tín hiệu mới nhất (logic như trước)
         recent_signal = None
-        max_timestamp = None  # Biến lưu trữ thời gian lớn nhất
+        max_timestamp = None
         for _, row in df.iterrows():
-            # Giới hạn tín hiệu trong 7 ngày qua
             if row['timestamp'] < (df['timestamp'].iloc[-1] - pd.Timedelta(days=7)):
                 continue
 
-            # Tín hiệu mua
             if row['close'] > row['MA50'] and row['MACD'] > row['Signal'] and row['RSI'] < 30:
                 if max_timestamp is None or row['timestamp'] > max_timestamp:
                     max_timestamp = row['timestamp']
@@ -148,8 +168,6 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
                         "price": row['close'],
                         "timestamp": row['timestamp'].strftime('%Y-%m-%d %H:%M:%S')
                     }
-
-            # Tín hiệu bán
             if row['close'] < row['MA50'] and row['MACD'] < row['Signal'] and row['RSI'] > 70:
                 if max_timestamp is None or row['timestamp'] > max_timestamp:
                     max_timestamp = row['timestamp']
@@ -176,11 +194,23 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
             profit_loss = ((current_price - signal_price) / signal_price) * 100 if recent_signal['type'] == 'buy' else (
                 (signal_price - current_price) / signal_price) * 100
 
+            # Thêm icon cho lãi/lỗ
+            if profit_loss > 0:
+                profit_icon = "🟢"
+                profit_color = f"🟢 {profit_loss:.2f}%"
+            elif profit_loss < 0:
+                profit_icon = "🔴"
+                profit_color = f"🔴 {profit_loss:.2f}%"
+            else:
+                profit_icon = "🟡"
+                profit_color = f"🟡 {profit_loss:.2f}%"
+
             position_info = (
                 f"- Vị thế hiện tại: {signal_type}\n"
                 f"- Ngày {signal_type.lower()}: {signal_time}\n"
                 f"- Giá {signal_type.lower()}: {signal_price:.2f} USD\n"
-                f"- Lãi/Lỗ: {profit_loss:.2f}%"
+                f"- Lãi/Lỗ: {profit_color}\n"
+                f"- Xu hướng: {trend_color}"
             )
 
         # Tạo thông báo trả về
@@ -192,7 +222,7 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
             f"- Thời gian cập nhật: {timestamp}\n\n"
             f"Thông tin vị thế:\n{position_info}"
         )
-        await update.message.reply_text(message)
+        await update.message.reply_text(message, parse_mode="MarkdownV2")
 
     except Exception as e:
         await update.message.reply_text(f"Đã xảy ra lỗi: {e}")
