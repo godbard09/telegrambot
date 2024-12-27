@@ -86,11 +86,7 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         ticker = exchange.fetch_ticker(symbol)
         current_price = ticker['last']
         percentage_change = ticker['percentage']
-
-        # Sử dụng OHLCV để tính khối lượng giao dịch trong 1 giờ qua
-        ohlcv = exchange.fetch_ohlcv(symbol, timeframe='1h', limit=1)
-        volume_1h = ohlcv[-1][5]  # Khối lượng tài sản
-        volume_in_usd = volume_1h * current_price  # Chuyển đổi sang USD
+        volume_24h = ticker.get('quoteVolume', 0)  # Khối lượng giao dịch trong 24 giờ qua
 
         timestamp = (
             pd.to_datetime(ticker['timestamp'], unit='ms')
@@ -102,14 +98,15 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         message = (
             f"Thông tin giá hiện tại cho {symbol}:\n"
             f"- Giá hiện tại: {current_price:.2f} USD\n"
-            f"- Biến động trong 1 giờ qua: {percentage_change:.2f}%\n"
-            f"- Khối lượng giao dịch trong 1 giờ qua: {volume_in_usd:.2f} USD\n"
+            f"- Biến động trong 24 giờ qua: {percentage_change:.2f}%\n"
+            f"- Khối lượng giao dịch trong 24 giờ qua: {volume_24h:.2f} USD\n"
             f"- Thời gian cập nhật: {timestamp}"
         )
         await update.message.reply_text(message)
 
     except Exception as e:
         await update.message.reply_text(f"Đã xảy ra lỗi: {e}")
+
 
 
 
@@ -306,7 +303,7 @@ async def chart(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 
 async def top(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Gửi danh sách top 10 cặp giao dịch tăng, giảm mạnh nhất và có khối lượng lớn nhất trong 1 giờ qua."""
+    """Gửi danh sách top 10 cặp giao dịch tăng, giảm mạnh nhất và có khối lượng lớn nhất trong 24 giờ qua."""
     try:
         # Lấy dữ liệu thị trường từ KuCoin
         markets = exchange.load_markets()
@@ -321,12 +318,9 @@ async def top(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 if change is not None:
                     data.append((symbol, change))
 
-                # Lấy khối lượng giao dịch từ OHLCV và chuyển đổi sang USD
-                ohlcv = exchange.fetch_ohlcv(symbol, timeframe='1h', limit=1)
-                if ohlcv:
-                    volume_asset = ohlcv[-1][5]
-                    price = ticker['last']
-                    volume_usd = volume_asset * price
+                # Sử dụng khối lượng giao dịch trong 24 giờ qua
+                volume_usd = ticker.get('quoteVolume')  # Lấy khối lượng giao dịch 24 giờ từ ticker
+                if volume_usd:
                     volume_data.append((symbol, volume_usd))
             except Exception as e:
                 print(f"Lỗi khi lấy dữ liệu cho {symbol}: {e}")
@@ -344,19 +338,19 @@ async def top(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
         # Gửi danh sách top tăng mạnh nhất
         await update.message.reply_text(
-            "Top 10 cặp giao dịch tăng mạnh nhất trong 1 giờ qua:\n" +
+            "Top 10 cặp giao dịch tăng mạnh nhất trong 24 giờ qua:\n" +
             "\n".join([f"{symbol}: +{change:.2f}%" for symbol, change in top_gainers])
         )
 
         # Gửi danh sách top giảm mạnh nhất
         await update.message.reply_text(
-            "Top 10 cặp giao dịch giảm mạnh nhất trong 1 giờ qua:\n" +
+            "Top 10 cặp giao dịch giảm mạnh nhất trong 24 giờ qua:\n" +
             "\n".join([f"{symbol}: {change:.2f}%" for symbol, change in top_losers])
         )
 
         # Gửi danh sách top khối lượng lớn nhất
         await update.message.reply_text(
-            "Top 10 cặp giao dịch có khối lượng lớn nhất trong 1 giờ qua:\n" +
+            "Top 10 cặp giao dịch có khối lượng lớn nhất trong 24 giờ qua (USDT):\n" +
             "\n".join([f"{symbol}: {volume:.2f} USD" for symbol, volume in top_volumes])
         )
     except Exception as e:
