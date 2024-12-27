@@ -75,21 +75,25 @@ async def unsubscribe(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 
 async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     try:
+        # Lấy mã giao dịch từ người dùng
         symbol = context.args[0] if context.args else None
         if not symbol:
             await update.message.reply_text("Vui lòng cung cấp mã giao dịch. Ví dụ: /cap BTC/USDT")
             return
 
+        # Kiểm tra mã giao dịch hợp lệ
         markets = exchange.load_markets()
         if symbol not in markets:
             await update.message.reply_text(f"Mã giao dịch không hợp lệ: {symbol}. Vui lòng kiểm tra lại.")
             return
 
+        # Lấy thông tin giá hiện tại từ sàn giao dịch
         ticker = exchange.fetch_ticker(symbol)
         current_price = ticker['last']
         percentage_change = ticker['percentage']
         volume_24h = ticker.get('quoteVolume', 0)  # Khối lượng giao dịch trong 24 giờ qua
 
+        # Lấy thời gian cập nhật
         timestamp = (
             pd.to_datetime(ticker['timestamp'], unit='ms')
             .tz_localize('UTC')
@@ -97,20 +101,40 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
             .strftime('%Y-%m-%d %H:%M:%S')
         )
 
+        # Kiểm tra tín hiệu gần nhất từ signal_history
+        signal = signal_history.get(symbol, None)
+        if signal:
+            position = signal.get('type')  # "buy" hoặc "sell"
+            entry_price = signal.get('price')
+            entry_time = signal.get('time')
+
+            # Tính lãi/lỗ
+            profit_loss = ((current_price - entry_price) / entry_price) * 100 if position == 'buy' else \
+                          ((entry_price - current_price) / entry_price) * 100
+
+            # Tạo thông tin vị thế
+            position_info = (
+                f"- Vị thế hiện tại: {'Mua' if position == 'buy' else 'Bán'}\n"
+                f"- Giá vào lệnh: {entry_price:.2f} USD\n"
+                f"- Lãi/Lỗ: {profit_loss:.2f}%\n"
+                f"- Thời gian tín hiệu: {entry_time}"
+            )
+        else:
+            position_info = "- Không có tín hiệu gần đây."
+
+        # Tạo tin nhắn trả về
         message = (
             f"Thông tin giá hiện tại cho {symbol}:\n"
             f"- Giá hiện tại: {current_price:.2f} USD\n"
             f"- Biến động trong 24 giờ qua: {percentage_change:.2f}%\n"
             f"- Khối lượng giao dịch trong 24 giờ qua: {volume_24h:.2f} USD\n"
-            f"- Thời gian cập nhật: {timestamp}"
+            f"- Thời gian cập nhật: {timestamp}\n\n"
+            f"Thông tin tín hiệu:\n{position_info}"
         )
         await update.message.reply_text(message)
 
     except Exception as e:
         await update.message.reply_text(f"Đã xảy ra lỗi: {e}")
-
-
-
 
 
 async def chart(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
