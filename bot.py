@@ -140,20 +140,20 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         df['RSI'] = 100 - (100 / (1 + rs))
         df['BB_Middle'] = df['close'].rolling(window=20).mean()
         df['BB_Upper'] = df['BB_Middle'] + 2 * df['close'].rolling(window=20).std()
-        df['BB_Lower'] = df['BB_Middle'] - 2 * df['close'].rolling(window=20).std()
+        df['BB_Lower'] = df['BB_Middle'] - df['BB_Middle'] - 2 * df['close'].rolling(window=20).std()
 
         # Xác định xu hướng
-        trend = "Không xác định"
+        trend = "**Không xác định**"
         if len(df) > 1:
             last_row = df.iloc[-1]  # Dữ liệu mới nhất
             prev_row = df.iloc[-2]  # Dữ liệu trước đó
 
             if last_row['close'] > last_row['MA50'] and last_row['close'] > last_row['MA100'] and last_row['MA50'] > prev_row['MA50']:
-                trend = "TĂNG"
+                trend = "**TĂNG**"
             elif last_row['close'] < last_row['MA50'] and last_row['close'] < last_row['MA100'] and last_row['MA50'] < prev_row['MA50']:
-                trend = "GIẢM"
+                trend = "**GIẢM**"
             else:
-                trend = "ĐI NGANG"
+                trend = "**ĐI NGANG**"
 
         # Tìm tín hiệu mới nhất
         recent_signal = None
@@ -167,7 +167,7 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
                 if max_timestamp is None or row['timestamp'] > max_timestamp:
                     max_timestamp = row['timestamp']
                     recent_signal = {
-                        "type": "MUA",
+                        "type": "**MUA**",
                         "price": row['close'],
                         "timestamp": row['timestamp'].strftime('%Y-%m-%d %H:%M:%S')
                     }
@@ -175,7 +175,7 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
                 if max_timestamp is None or row['timestamp'] > max_timestamp:
                     max_timestamp = row['timestamp']
                     recent_signal = {
-                        "type": "MUA",
+                        "type": "**MUA**",
                         "price": row['close'],
                         "timestamp": row['timestamp'].strftime('%Y-%m-%d %H:%M:%S')
                     }
@@ -183,7 +183,7 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
                 if max_timestamp is None or row['timestamp'] > max_timestamp:
                     max_timestamp = row['timestamp']
                     recent_signal = {
-                        "type": "BÁN",
+                        "type": "**BÁN**",
                         "price": row['close'],
                         "timestamp": row['timestamp'].strftime('%Y-%m-%d %H:%M:%S')
                     }
@@ -191,7 +191,7 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
                 if max_timestamp is None or row['timestamp'] > max_timestamp:
                     max_timestamp = row['timestamp']
                     recent_signal = {
-                        "type": "BÁN",
+                        "type": "**BÁN**",
                         "price": row['close'],
                         "timestamp": row['timestamp'].strftime('%Y-%m-%d %H:%M:%S')
                     }
@@ -199,10 +199,10 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         # Chuẩn bị thông tin vị thế
         position_info = "Không có tín hiệu mua/bán trong 7 ngày qua."
         if recent_signal:
-            signal_type = f"**{recent_signal['type']}**"
+            signal_type = f"{recent_signal['type']}"
             signal_price = recent_signal['price']
             signal_time = recent_signal['timestamp']
-            profit_loss = ((current_price - signal_price) / signal_price) * 100 if recent_signal['type'] == 'MUA' else (
+            profit_loss = ((current_price - signal_price) / signal_price) * 100 if "MUA" in recent_signal["type"] else (
                 (signal_price - current_price) / signal_price) * 100
 
             profit_color = (
@@ -212,10 +212,10 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
             )
 
             position_info = (
-                f"- Xu hướng: **{trend}**\n"
+                f"- Xu hướng: {trend}\n"
                 f"- Vị thế hiện tại: {signal_type}\n"
-                f"- Ngày {recent_signal['type'].lower()}: {signal_time}\n"
-                f"- Giá {recent_signal['type'].lower()}: {signal_price:.2f} USD\n"
+                f"- Ngày: {signal_time}\n"
+                f"- Giá: {signal_price:.2f} USD\n"
                 f"- Lãi/Lỗ: {profit_color}"
             )
 
@@ -233,8 +233,6 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
     except Exception as e:
         await update.message.reply_text(f"Đã xảy ra lỗi: {e}")
-
-
 
 
 async def chart(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
