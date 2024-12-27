@@ -104,8 +104,8 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         # Lấy tín hiệu gần nhất trong 7 ngày qua từ signal_history
         signal = signal_history.get(symbol, None)
         if signal:
-            # Kiểm tra tín hiệu có nằm trong 7 ngày qua không
-            signal_time = pd.to_datetime(signal.get('time')).tz_localize(vietnam_tz)
+            # Chuyển đổi thời gian tín hiệu sang múi giờ Việt Nam
+            signal_time = pd.to_datetime(signal.get('time')).tz_localize('UTC').tz_convert(vietnam_tz)
             seven_days_ago = pd.Timestamp.now(vietnam_tz) - pd.Timedelta(days=7)
 
             if signal_time >= seven_days_ago:
@@ -144,6 +144,7 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
     except Exception as e:
         await update.message.reply_text(f"Đã xảy ra lỗi: {e}")
+
 
 
 
