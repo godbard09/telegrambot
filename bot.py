@@ -140,7 +140,7 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         df['RSI'] = 100 - (100 / (1 + rs))
         df['BB_Middle'] = df['close'].rolling(window=20).mean()
         df['BB_Upper'] = df['BB_Middle'] + 2 * df['close'].rolling(window=20).std()
-        df['BB_Lower'] = df['BB_Middle'] - df['close'].rolling(window=20).std()
+        df['BB_Lower'] = df['BB_Middle'] - 2 * df['close'].rolling(window=20).std()
 
         # Xác định xu hướng
         trend = "Không xác định"
@@ -199,7 +199,7 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         # Chuẩn bị thông tin vị thế
         position_info = "Không có tín hiệu mua/bán trong 7 ngày qua."
         if recent_signal:
-            signal_type = recent_signal['type']
+            signal_type = f"**{recent_signal['type']}**"
             signal_price = recent_signal['price']
             signal_time = recent_signal['timestamp']
             profit_loss = ((current_price - signal_price) / signal_price) * 100 if recent_signal['type'] == 'MUA' else (
@@ -212,7 +212,7 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
             )
 
             position_info = (
-                f"- Xu hướng: {trend}\n"
+                f"- Xu hướng: **{trend}**\n"
                 f"- Vị thế hiện tại: {signal_type}\n"
                 f"- Ngày {recent_signal['type'].lower()}: {signal_time}\n"
                 f"- Giá {recent_signal['type'].lower()}: {signal_price:.2f} USD\n"
