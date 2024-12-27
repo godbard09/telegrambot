@@ -74,7 +74,9 @@ async def unsubscribe(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     else:
         await update.message.reply_text("Bạn chưa đăng ký trước đó.")
 
-async def escape_markdown(text: str) -> str:
+import re
+
+def escape_markdown(text: str) -> str:
     """Thoát các ký tự đặc biệt cho Markdown v2."""
     escape_chars = r"_*[]()~`>#+-=|{}.!"
     return re.sub(f"([{re.escape(escape_chars)}])", r"\\\1", text)
@@ -202,13 +204,10 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
             # Thêm icon cho lãi/lỗ
             if profit_loss > 0:
-                profit_icon = "🟢"
                 profit_color = f"🟢 {profit_loss:.2f}%"
             elif profit_loss < 0:
-                profit_icon = "🔴"
                 profit_color = f"🔴 {profit_loss:.2f}%"
             else:
-                profit_icon = "🟡"
                 profit_color = f"🟡 {profit_loss:.2f}%"
 
             position_info = (
