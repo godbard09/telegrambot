@@ -148,7 +148,7 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         recent_signal = None
         max_timestamp = None
         for _, row in df.iterrows():
-            if row['timestamp'] < (df['timestamp'].iloc[-1] - pd.Timedelta(days=7)):
+            if row['timestamp'] < (now - pd.Timedelta(days=7)):
                 continue
 
             if row['close'] > row['MA50'] and row['MACD'] > row['Signal'] and row['RSI'] < 30:
@@ -650,7 +650,7 @@ async def signal(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         # Phát hiện tín hiệu mua bán trong 7 ngày qua
         signals_past = []
         for index, row in df.iterrows():
-            if row['timestamp'] < (df['timestamp'].iloc[-1] - pd.Timedelta(days=7)):
+            if row['timestamp'] < (now - pd.Timedelta(days=7)):
                 continue
 
             profit_margin = ((current_price - row['close']) / row['close']) * 100
