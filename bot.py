@@ -28,9 +28,11 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         "Gõ /top để xem top 10 cặp giao dịch tăng, giảm mạnh nhất và khối lượng lớn nhất trong 24 giờ qua.\n"
         "Gõ /signal <mã giao dịch> để nhận tín hiệu mua bán và lưu lịch sử.\n"
         "Gõ /cap <mã giao dịch> để xem thông tin giá hiện tại.\n"
+        "Gõ /list để xem top 10 cặp giao dịch có tín hiệu mua và bán gần đây.\n"
         "Gõ /subscribe để đăng ký nhận thông báo tự động.\n"
         "Gõ /unsubscribe để hủy đăng ký nhận thông báo."
     )
+
 
 
 # File lưu danh sách subscribers
@@ -378,7 +380,77 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await chart(update, context)
 
 
+async def list_signals(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Hiển thị top 10 cặp giao dịch có tín hiệu mua và bán gần đây."""
+    try:
+        # Lấy danh sách mã giao dịch
+        markets = exchange.load_markets()
+        symbols = list(markets.keys())
+        timeframe = '1h'
+        limit = 200
+        signals = []
 
+        for symbol in symbols:
+            try:
+                # Lấy dữ liệu từ KuCoin
+                ohlcv = exchange.fetch_ohlcv(symbol, timeframe, limit=limit)
+                df = pd.DataFrame(ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
+                df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
+
+                # Tính toán các chỉ báo kỹ thuật
+                df['MA50'] = df['close'].rolling(window=50).mean()
+                df['EMA12'] = df['close'].ewm(span=12).mean()
+                df['EMA26'] = df['close'].ewm(span=26).mean()
+                df['MACD'] = df['EMA12'] - df['EMA26']
+                df['Signal'] = df['MACD'].ewm(span=9).mean()
+                delta = df['close'].diff()
+                gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
+                loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
+                rs = gain / loss
+                df['RSI'] = 100 - (100 / (1 + rs))
+                df['BB_Middle'] = df['close'].rolling(window=20).mean()
+                df['BB_Upper'] = df['BB_Middle'] + 2 * df['close'].rolling(window=20).std()
+                df['BB_Lower'] = df['BB_Middle'] - 2 * df['close'].rolling(window=20).std()
+
+                # Lấy tín hiệu gần nhất
+                last_row = df.iloc[-1]
+                current_time = last_row['timestamp'].strftime('%Y-%m-%d %H:%M:%S')
+                current_price = last_row['close']
+
+                # Kiểm tra tín hiệu mua/bán
+                if last_row['close'] > last_row['MA50'] and last_row['MACD'] > last_row['Signal'] and last_row['RSI'] < 30:
+                    signals.append((symbol, "Mua", current_price, current_time))
+                elif last_row['close'] <= last_row['BB_Lower']:
+                    signals.append((symbol, "Mua", current_price, current_time))
+
+                if last_row['close'] < last_row['MA50'] and last_row['MACD'] < last_row['Signal'] and last_row['RSI'] > 70:
+                    signals.append((symbol, "Bán", current_price, current_time))
+                elif last_row['close'] >= last_row['BB_Upper']:
+                    signals.append((symbol, "Bán", current_price, current_time))
+
+            except Exception as e:
+                print(f"Lỗi khi xử lý {symbol}: {e}")
+                continue
+
+        # Lấy top 10 tín hiệu gần đây
+        top_signals = sorted(signals, key=lambda x: x[3], reverse=True)[:10]
+
+        # Tạo danh sách nút tương tác
+        keyboard = [
+            [InlineKeyboardButton(f"{symbol}: {action} ({price:.2f} USD)", callback_data=symbol)]
+            for symbol, action, price, _ in top_signals
+        ]
+
+        if keyboard:
+            await update.message.reply_text(
+                "Top 10 cặp giao dịch có tín hiệu gần đây:",
+                reply_markup=InlineKeyboardMarkup(keyboard)
+            )
+        else:
+            await update.message.reply_text("Hiện không có tín hiệu mua/bán nào gần đây.")
+
+    except Exception as e:
+        await update.message.reply_text(f"Đã xảy ra lỗi: {e}")
 
 
 
@@ -568,6 +640,7 @@ def main():
     application.add_handler(CommandHandler("chart", chart))
     application.add_handler(CommandHandler("signal", signal))
     application.add_handler(CommandHandler("top", top))  # Thêm handler cho /top
+    application.add_handler(CommandHandler("list", list_signals))
     application.add_handler(CommandHandler("cap", current_price))  # Thêm handler cho /cap
     application.add_handler(CallbackQueryHandler(button))  # Thêm handler cho nút bấm từ /top
 
