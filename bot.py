@@ -303,58 +303,65 @@ async def chart(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 
 async def top(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Gửi danh sách top 10 cặp giao dịch tăng, giảm mạnh nhất và có khối lượng lớn nhất trong 24 giờ qua."""
+    """Gửi danh sách top 10 cặp giao dịch tăng, giảm mạnh nhất và có khối lượng lớn nhất với nút tương tác."""
     try:
         # Lấy dữ liệu thị trường từ KuCoin
-        markets = exchange.load_markets()
+        markets = exchange.fetch_tickers()
         data = []
         volume_data = []
 
-        for symbol in markets.keys():
-            try:
-                # Lấy ticker để tính phần trăm biến động
-                ticker = exchange.fetch_ticker(symbol)
-                change = ticker.get('percentage')
-                if change is not None:
-                    data.append((symbol, change))
+        # Tính toán phần trăm biến động giá và khối lượng giao dịch
+        for symbol, ticker in markets.items():
+            change = ticker.get('percentage')
+            volume_24h = ticker.get('quoteVolume', 0)  # Khối lượng giao dịch 24 giờ
+            if change is not None:
+                data.append((symbol, change))
+            if volume_24h > 0:
+                volume_data.append((symbol, volume_24h))
 
-                # Sử dụng khối lượng giao dịch trong 24 giờ qua
-                volume_usd = ticker.get('quoteVolume')  # Lấy khối lượng giao dịch 24 giờ từ ticker
-                if volume_usd:
-                    volume_data.append((symbol, volume_usd))
-            except Exception as e:
-                print(f"Lỗi khi lấy dữ liệu cho {symbol}: {e}")
-
-        # Lấy top 10 tăng và giảm mạnh nhất
+        # Lấy top 10 tăng, giảm mạnh nhất và khối lượng lớn nhất
         top_gainers = sorted(data, key=lambda x: x[1], reverse=True)[:10]
         top_losers = sorted(data, key=lambda x: x[1])[:10]
+        top_volumes = sorted(volume_data, key=lambda x: x[1], reverse=True)[:10]
 
-        # Lấy top 10 cặp có khối lượng lớn nhất
-        top_volumes = sorted(
-            [(symbol, volume) for symbol, volume in volume_data if volume > 0], 
-            key=lambda x: x[1], 
-            reverse=True
-        )[:10]
+        # Tạo danh sách nút tương tác cho top tăng
+        gainers_keyboard = [
+            [InlineKeyboardButton(f"{symbol}: +{change:.2f}%", callback_data=symbol)]
+            for symbol, change in top_gainers
+        ]
+
+        # Tạo danh sách nút tương tác cho top giảm
+        losers_keyboard = [
+            [InlineKeyboardButton(f"{symbol}: {change:.2f}%", callback_data=symbol)]
+            for symbol, change in top_losers
+        ]
+
+        # Tạo danh sách nút tương tác cho khối lượng giao dịch lớn nhất
+        volumes_keyboard = [
+            [InlineKeyboardButton(f"{symbol}: {volume:.2f} USD", callback_data=symbol)]
+            for symbol, volume in top_volumes
+        ]
 
         # Gửi danh sách top tăng mạnh nhất
         await update.message.reply_text(
-            "Top 10 cặp giao dịch tăng mạnh nhất trong 24 giờ qua:\n" +
-            "\n".join([f"{symbol}: +{change:.2f}%" for symbol, change in top_gainers])
+            "Top 10 cặp giao dịch tăng mạnh nhất trong 24 giờ qua:",
+            reply_markup=InlineKeyboardMarkup(gainers_keyboard)
         )
 
         # Gửi danh sách top giảm mạnh nhất
         await update.message.reply_text(
-            "Top 10 cặp giao dịch giảm mạnh nhất trong 24 giờ qua:\n" +
-            "\n".join([f"{symbol}: {change:.2f}%" for symbol, change in top_losers])
+            "Top 10 cặp giao dịch giảm mạnh nhất trong 24 giờ qua:",
+            reply_markup=InlineKeyboardMarkup(losers_keyboard)
         )
 
         # Gửi danh sách top khối lượng lớn nhất
         await update.message.reply_text(
-            "Top 10 cặp giao dịch có khối lượng lớn nhất trong 24 giờ qua (USDT):\n" +
-            "\n".join([f"{symbol}: {volume:.2f} USD" for symbol, volume in top_volumes])
+            "Top 10 cặp giao dịch có khối lượng lớn nhất trong 24 giờ qua:",
+            reply_markup=InlineKeyboardMarkup(volumes_keyboard)
         )
     except Exception as e:
         await update.message.reply_text(f"Đã xảy ra lỗi: {e}")
+
 
 
 
