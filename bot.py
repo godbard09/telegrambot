@@ -381,14 +381,15 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 
 async def list_signals(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Hiển thị top 10 cặp giao dịch có tín hiệu mua và bán gần đây."""
+    """Hiển thị top 10 cặp giao dịch có tín hiệu mua và tín hiệu bán gần đây."""
     try:
         # Lấy danh sách mã giao dịch
         markets = exchange.load_markets()
         symbols = list(markets.keys())
         timeframe = '1h'
         limit = 200
-        signals = []
+        buy_signals = []
+        sell_signals = []
 
         for symbol in symbols:
             try:
@@ -417,40 +418,59 @@ async def list_signals(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
                 current_time = last_row['timestamp'].strftime('%Y-%m-%d %H:%M:%S')
                 current_price = last_row['close']
 
-                # Kiểm tra tín hiệu mua/bán
+                # Tín hiệu mua
                 if last_row['close'] > last_row['MA50'] and last_row['MACD'] > last_row['Signal'] and last_row['RSI'] < 30:
-                    signals.append((symbol, "Mua", current_price, current_time))
+                    buy_signals.append((symbol, current_price, current_time))
                 elif last_row['close'] <= last_row['BB_Lower']:
-                    signals.append((symbol, "Mua", current_price, current_time))
+                    buy_signals.append((symbol, current_price, current_time))
 
+                # Tín hiệu bán
                 if last_row['close'] < last_row['MA50'] and last_row['MACD'] < last_row['Signal'] and last_row['RSI'] > 70:
-                    signals.append((symbol, "Bán", current_price, current_time))
+                    sell_signals.append((symbol, current_price, current_time))
                 elif last_row['close'] >= last_row['BB_Upper']:
-                    signals.append((symbol, "Bán", current_price, current_time))
+                    sell_signals.append((symbol, current_price, current_time))
 
             except Exception as e:
                 print(f"Lỗi khi xử lý {symbol}: {e}")
                 continue
 
-        # Lấy top 10 tín hiệu gần đây
-        top_signals = sorted(signals, key=lambda x: x[3], reverse=True)[:10]
+        # Lấy top 10 tín hiệu mua và bán
+        top_buy_signals = sorted(buy_signals, key=lambda x: x[2], reverse=True)[:10]
+        top_sell_signals = sorted(sell_signals, key=lambda x: x[2], reverse=True)[:10]
 
-        # Tạo danh sách nút tương tác
-        keyboard = [
-            [InlineKeyboardButton(f"{symbol}: {action} ({price:.2f} USD)", callback_data=symbol)]
-            for symbol, action, price, _ in top_signals
+        # Tạo danh sách nút tương tác cho tín hiệu mua
+        buy_keyboard = [
+            [InlineKeyboardButton(f"{symbol}: Mua ({price:.2f} USD)", callback_data=symbol)]
+            for symbol, price, _ in top_buy_signals
         ]
 
-        if keyboard:
+        # Tạo danh sách nút tương tác cho tín hiệu bán
+        sell_keyboard = [
+            [InlineKeyboardButton(f"{symbol}: Bán ({price:.2f} USD)", callback_data=symbol)]
+            for symbol, price, _ in top_sell_signals
+        ]
+
+        # Gửi danh sách tín hiệu mua
+        if buy_keyboard:
             await update.message.reply_text(
-                "Top 10 cặp giao dịch có tín hiệu gần đây:",
-                reply_markup=InlineKeyboardMarkup(keyboard)
+                "Top 10 cặp giao dịch có tín hiệu MUA gần đây:",
+                reply_markup=InlineKeyboardMarkup(buy_keyboard)
             )
         else:
-            await update.message.reply_text("Hiện không có tín hiệu mua/bán nào gần đây.")
+            await update.message.reply_text("Hiện không có tín hiệu MUA nào gần đây.")
+
+        # Gửi danh sách tín hiệu bán
+        if sell_keyboard:
+            await update.message.reply_text(
+                "Top 10 cặp giao dịch có tín hiệu BÁN gần đây:",
+                reply_markup=InlineKeyboardMarkup(sell_keyboard)
+            )
+        else:
+            await update.message.reply_text("Hiện không có tín hiệu BÁN nào gần đây.")
 
     except Exception as e:
         await update.message.reply_text(f"Đã xảy ra lỗi: {e}")
+
 
 
 
