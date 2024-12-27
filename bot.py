@@ -8,6 +8,7 @@ import os
 import asyncio
 import json
 import pytz
+import re
 
 # Token bot từ BotFather
 TOKEN = "8081244500:AAFkXKLfVoXQeqDYVW_HMdXluGELf9AWD3M"
@@ -72,6 +73,11 @@ async def unsubscribe(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         await update.message.reply_text("Bạn đã huỷ đăng ký nhận thông báo.")
     else:
         await update.message.reply_text("Bạn chưa đăng ký trước đó.")
+
+async def escape_markdown(text: str) -> str:
+    """Thoát các ký tự đặc biệt cho Markdown v2."""
+    escape_chars = r"_*[]()~`>#+-=|{}.!"
+    return re.sub(f"([{re.escape(escape_chars)}])", r"\\\1", text)
 
 async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     try:
@@ -213,8 +219,8 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
                 f"- Xu hướng: {trend_color}"
             )
 
-        # Tạo thông báo trả về
-        message = (
+        # Escape Markdown và tạo thông báo trả về
+        message = escape_markdown(
             f"Thông tin giá hiện tại cho {symbol}:\n"
             f"- Giá hiện tại: {current_price:.2f} USD\n"
             f"- Biến động trong 24 giờ qua: {percentage_change:.2f}%\n"
