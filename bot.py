@@ -565,44 +565,41 @@ async def signal(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
         # Tín hiệu mua
         if last_row['close'] > last_row['MA50'] and last_row['MACD'] > last_row['Signal'] and last_row['RSI'] < 30:
-            signals_now.append(f"\U0001F7E2 Mua: Giá {current_price:.2f} USD vào lúc {current_time}.")
+            signals_now.append({"type": "buy", "price": current_price, "time": current_time})
         elif last_row['close'] <= last_row['BB_Lower']:
-            signals_now.append(f"\U0001F7E2 Mua: Giá {current_price:.2f} USD vào lúc {current_time}.")
+            signals_now.append({"type": "buy", "price": current_price, "time": current_time})
 
         # Tín hiệu bán
         if last_row['close'] < last_row['MA50'] and last_row['MACD'] < last_row['Signal'] and last_row['RSI'] > 70:
-            signals_now.append(f"\U0001F534 Bán: Giá {current_price:.2f} USD vào lúc {current_time}.")
+            signals_now.append({"type": "sell", "price": current_price, "time": current_time})
         elif last_row['close'] >= last_row['BB_Upper']:
-            signals_now.append(f"\U0001F534 Bán: Giá {current_price:.2f} USD vào lúc {current_time}.")
+            signals_now.append({"type": "sell", "price": current_price, "time": current_time})
+
+        # Lưu tín hiệu vào signal_history
+        if symbol not in signal_history:
+            signal_history[symbol] = []
+
+        # Thêm tín hiệu mới (tránh trùng lặp)
+        for signal in signals_now:
+            if not any(s['time'] == signal['time'] for s in signal_history[symbol]):
+                signal_history[symbol].append(signal)
 
         # Phát hiện tín hiệu mua bán trong 7 ngày qua
         signals_past = []
-        for index, row in df.iterrows():
-            if row['timestamp'] < (df['timestamp'].iloc[-1] - pd.Timedelta(days=7)):
-                continue
-
-            profit_margin = ((current_price - row['close']) / row['close']) * 100
-            if profit_margin > 0:
-                icon = "\U0001F7E2"  # Màu xanh
-            elif profit_margin < 0:
-                icon = "\U0001F534"  # Màu đỏ
-            else:
-                icon = "\U0001F7E1"  # Màu vàng (lãi/lỗ = 0.00%)
-
-            if row['close'] > row['MA50'] and row['MACD'] > row['Signal'] and row['RSI'] < 30:
-                signals_past.append(f"\U0001F7E2 Mua: Giá {row['close']:.2f} USD vào lúc {row['timestamp'].strftime('%Y-%m-%d %H:%M:%S')}. {icon} Lãi/Lỗ: {profit_margin:.2f}%")
-            elif row['close'] <= row['BB_Lower']:
-                signals_past.append(f"\U0001F7E2 Mua: Giá {row['close']:.2f} USD vào lúc {row['timestamp'].strftime('%Y-%m-%d %H:%M:%S')}. {icon} Lãi/Lỗ: {profit_margin:.2f}%")
-
-            if row['close'] < row['MA50'] and row['MACD'] < row['Signal'] and row['RSI'] > 70:
-                signals_past.append(f"\U0001F534 Bán: Giá {row['close']:.2f} USD vào lúc {row['timestamp'].strftime('%Y-%m-%d %H:%M:%S')}. {icon} Lãi/Lỗ: {profit_margin:.2f}%")
-            elif row['close'] >= row['BB_Upper']:
-                signals_past.append(f"\U0001F534 Bán: Giá {row['close']:.2f} USD vào lúc {row['timestamp'].strftime('%Y-%m-%d %H:%M:%S')}. {icon} Lãi/Lỗ: {profit_margin:.2f}%")
+        seven_days_ago = pd.Timestamp.now(vietnam_tz) - pd.Timedelta(days=7)
+        for signal in signal_history[symbol]:
+            if pd.to_datetime(signal['time']).tz_localize('UTC').tz_convert(vietnam_tz) >= seven_days_ago:
+                profit_margin = ((current_price - signal['price']) / signal['price']) * 100 if signal['type'] == "buy" else \
+                                ((signal['price'] - current_price) / signal['price']) * 100
+                icon = "\U0001F7E2" if profit_margin > 0 else ("\U0001F534" if profit_margin < 0 else "\U0001F7E1")
+                signals_past.append(f"{icon} {signal['type'].capitalize()}: Giá {signal['price']:.2f} USD vào lúc {signal['time']}. Lãi/Lỗ: {profit_margin:.2f}%")
 
         # Gửi tín hiệu qua Telegram
         signal_message = f"Tín hiệu giao dịch cho {symbol}:\n"
         if signals_now:
-            signal_message += "\nTín hiệu hiện tại:\n" + "\n".join(signals_now)
+            signal_message += "\nTín hiệu hiện tại:\n" + "\n".join(
+                [f"\U0001F7E2 {signal['type'].capitalize()}: {signal['price']:.2f} USD tại {signal['time']}" for signal in signals_now]
+            )
         else:
             signal_message += "\nHiện tại không có tín hiệu rõ ràng."
 
@@ -615,6 +612,7 @@ async def signal(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     except Exception as e:
         await update.message.reply_text(f"Đã xảy ra lỗi: {e}")
+
 
 
 async def monitor_signals(context: ContextTypes.DEFAULT_TYPE) -> None:
