@@ -25,7 +25,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         "Chào mừng! Tôi là bot phân tích kỹ thuật của anh Hưng Thạnh đẹp trai.\n"
         "Dưới đây là các lệnh bạn có thể sử dụng:\n"
         "Gõ /chart <mã giao dịch> để xem biểu đồ kỹ thuật (ví dụ: /chart BTC/USDT).\n"
-        "Gõ /top để xem top 10 cặp giao dịch tăng và giảm mạnh nhất trong 1 giờ qua.\n"
+        "Gõ /top để xem top 10 cặp giao dịch tăng, giảm mạnh nhất và khối lượng lớn nhất trong 24 giờ qua.\n"
         "Gõ /signal <mã giao dịch> để nhận tín hiệu mua bán và lưu lịch sử.\n"
         "Gõ /cap <mã giao dịch> để xem thông tin giá hiện tại.\n"
         "Gõ /subscribe để đăng ký nhận thông báo tự động.\n"
