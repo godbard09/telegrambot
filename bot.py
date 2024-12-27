@@ -386,7 +386,7 @@ async def list_signals(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         # Lấy danh sách mã giao dịch
         markets = exchange.load_markets()
         symbols = list(markets.keys())
-        timeframe = '1h'
+        timeframe = '6h'
         limit = 200
         buy_signals = []
         sell_signals = []
