@@ -97,7 +97,7 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
             .strftime('%Y-%m-%d %H:%M:%S')
         )
 
-        # Lấy dữ liệu OHLCV để tính toán chỉ báo
+        # Lấy dữ liệu OHLCV để tính toán
         timeframe = '6h'
         limit = 500
         ohlcv = exchange.fetch_ohlcv(symbol, timeframe, limit=limit)
@@ -108,7 +108,7 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
             .dt.tz_convert(vietnam_tz)
         )
 
-        # Tính toán các chỉ báo kỹ thuật (đồng bộ logic với /signal)
+        # Tính toán các chỉ báo kỹ thuật
         df['MA50'] = df['close'].rolling(window=50).mean()
         df['EMA12'] = df['close'].ewm(span=12).mean()
         df['EMA26'] = df['close'].ewm(span=26).mean()
@@ -123,14 +123,14 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         df['BB_Upper'] = df['BB_Middle'] + 2 * df['close'].rolling(window=20).std()
         df['BB_Lower'] = df['BB_Middle'] - 2 * df['close'].rolling(window=20).std()
 
-        # Tìm tín hiệu mới nhất (đồng bộ logic với /signal)
+        # Tìm tín hiệu mới nhất trong 7 ngày qua
         recent_signal = None
-        for index, row in df[::-1].iterrows():  # Duyệt từ cuối lên
-            # Giới hạn trong 7 ngày qua
+        for _, row in df.iloc[::-1].iterrows():  # Duyệt từ dòng mới nhất
+            # Giới hạn tín hiệu trong 7 ngày qua
             if row['timestamp'] < (df['timestamp'].iloc[-1] - pd.Timedelta(days=7)):
                 break
 
-            # Kiểm tra tín hiệu mua
+            # Tín hiệu mua
             if row['close'] > row['MA50'] and row['MACD'] > row['Signal'] and row['RSI'] < 30:
                 recent_signal = {
                     "type": "buy",
@@ -146,7 +146,7 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
                 }
                 break
 
-            # Kiểm tra tín hiệu bán
+            # Tín hiệu bán
             if row['close'] < row['MA50'] and row['MACD'] < row['Signal'] and row['RSI'] > 70:
                 recent_signal = {
                     "type": "sell",
@@ -191,6 +191,7 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
     except Exception as e:
         await update.message.reply_text(f"Đã xảy ra lỗi: {e}")
+
 
 
 
