@@ -625,7 +625,7 @@ async def signal(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         df['RSI'] = 100 - (100 / (1 + rs))
         df['BB_Middle'] = df['close'].rolling(window=20).mean()
         df['BB_Upper'] = df['BB_Middle'] + 2 * df['close'].rolling(window=20).std()
-        df['BB_Lower'] = df['BB_Middle'] - df['close'].rolling(window=20).std()
+        df['BB_Lower'] = df['BB_Middle'] - 2 * df['close'].rolling(window=20).std()
 
         # Phát hiện tín hiệu mua bán hiện tại
         last_row = df.iloc[-1]  # Lấy dòng dữ liệu cuối cùng
@@ -649,14 +649,10 @@ async def signal(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
         # Phát hiện tín hiệu mua bán trong 7 ngày qua
         signals_past = []
-        now = pd.Timestamp.now(tz=vietnam_tz)  # Thời gian hiện tại theo múi giờ Việt Nam
-
         for index, row in df.iterrows():
-            # Bỏ qua các dòng không nằm trong 7 ngày qua
-            if row['timestamp'] < (now - pd.Timedelta(days=7)):
+            if row['timestamp'] < (df['timestamp'].iloc[-1] - pd.Timedelta(days=7)):
                 continue
 
-            row_time = row['timestamp'].strftime('%Y-%m-%d %H:%M:%S')
             profit_margin = ((current_price - row['close']) / row['close']) * 100
             if profit_margin > 0:
                 icon = "\U0001F7E2"  # Màu xanh
@@ -666,14 +662,14 @@ async def signal(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 icon = "\U0001F7E1"  # Màu vàng (lãi/lỗ = 0.00%)
 
             if row['close'] > row['MA50'] and row['MACD'] > row['Signal'] and row['RSI'] < 30:
-                signals_past.append(f"\U0001F7E2 Mua: Giá {row['close']:.2f} USD vào lúc {row_time}. {icon} Lãi/Lỗ: {profit_margin:.2f}%")
+                signals_past.append(f"\U0001F7E2 Mua: Giá {row['close']:.2f} USD vào lúc {row['timestamp'].strftime('%Y-%m-%d %H:%M:%S')}. {icon} Lãi/Lỗ: {profit_margin:.2f}%")
             elif row['close'] <= row['BB_Lower']:
-                signals_past.append(f"\U0001F7E2 Mua: Giá {row['close']:.2f} USD vào lúc {row_time}. {icon} Lãi/Lỗ: {profit_margin:.2f}%")
+                signals_past.append(f"\U0001F7E2 Mua: Giá {row['close']:.2f} USD vào lúc {row['timestamp'].strftime('%Y-%m-%d %H:%M:%S')}. {icon} Lãi/Lỗ: {profit_margin:.2f}%")
 
             if row['close'] < row['MA50'] and row['MACD'] < row['Signal'] and row['RSI'] > 70:
-                signals_past.append(f"\U0001F534 Bán: Giá {row['close']:.2f} USD vào lúc {row_time}. {icon} Lãi/Lỗ: {profit_margin:.2f}%")
+                signals_past.append(f"\U0001F534 Bán: Giá {row['close']:.2f} USD vào lúc {row['timestamp'].strftime('%Y-%m-%d %H:%M:%S')}. {icon} Lãi/Lỗ: {profit_margin:.2f}%")
             elif row['close'] >= row['BB_Upper']:
-                signals_past.append(f"\U0001F534 Bán: Giá {row['close']:.2f} USD vào lúc {row_time}. {icon} Lãi/Lỗ: {profit_margin:.2f}%")
+                signals_past.append(f"\U0001F534 Bán: Giá {row['close']:.2f} USD vào lúc {row['timestamp'].strftime('%Y-%m-%d %H:%M:%S')}. {icon} Lãi/Lỗ: {profit_margin:.2f}%")
 
         # Gửi tín hiệu qua Telegram
         signal_message = f"Tín hiệu giao dịch cho {symbol}:\n"
