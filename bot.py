@@ -127,7 +127,7 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
                 # Tạo thông tin vị thế
                 position_info = (
-                    f"- Vị thế hiện tại: {'Mua' if position == 'buy' else 'Bán'}\n"
+                    f"- Vị thế gần nhất: {'Mua' if position == 'buy' else 'Bán'}\n"
                     f"- Giá vào lệnh: {entry_price:.2f} USD\n"
                     f"- Lãi/Lỗ: {profit_loss:.2f}%\n"
                     f"- Thời gian tín hiệu: {entry_time}"
