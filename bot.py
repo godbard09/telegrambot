@@ -542,17 +542,22 @@ async def signal(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 continue
 
             profit_margin = ((current_price - row['close']) / row['close']) * 100
-            icon = "\U0001F7E2" if profit_margin > 0 else "\U0001F534"
+            if profit_margin > 0:
+                icon = "\U0001F7E2"  # Màu xanh
+            elif profit_margin < 0:
+                icon = "\U0001F534"  # Màu đỏ
+            else:
+                icon = "\U0001F7E1"  # Màu vàng (lãi/lỗ = 0.00%)
 
             if row['close'] > row['MA50'] and row['MACD'] > row['Signal'] and row['RSI'] < 30:
-                signals_past.append(f"\U0001F7E2 Mua: Giá {row['close']:.2f} USD vào lúc {row['timestamp'].strftime('%Y-%m-%d %H:%M:%S')}. {icon} Lãi/Lỗ: {profit_margin:.2f}%")
+                signals_past.append(f"{icon} Mua: Giá {row['close']:.2f} USD vào lúc {row['timestamp'].strftime('%Y-%m-%d %H:%M:%S')}. Lãi/Lỗ: {profit_margin:.2f}%")
             elif row['close'] <= row['BB_Lower']:
-                signals_past.append(f"\U0001F7E2 Mua: Giá {row['close']:.2f} USD vào lúc {row['timestamp'].strftime('%Y-%m-%d %H:%M:%S')}. {icon} Lãi/Lỗ: {profit_margin:.2f}%")
+                signals_past.append(f"{icon} Mua: Giá {row['close']:.2f} USD vào lúc {row['timestamp'].strftime('%Y-%m-%d %H:%M:%S')}. Lãi/Lỗ: {profit_margin:.2f}%")
 
             if row['close'] < row['MA50'] and row['MACD'] < row['Signal'] and row['RSI'] > 70:
-                signals_past.append(f"\U0001F534 Bán: Giá {row['close']:.2f} USD vào lúc {row['timestamp'].strftime('%Y-%m-%d %H:%M:%S')}. {icon} Lãi/Lỗ: {profit_margin:.2f}%")
+                signals_past.append(f"{icon} Bán: Giá {row['close']:.2f} USD vào lúc {row['timestamp'].strftime('%Y-%m-%d %H:%M:%S')}. Lãi/Lỗ: {profit_margin:.2f}%")
             elif row['close'] >= row['BB_Upper']:
-                signals_past.append(f"\U0001F534 Bán: Giá {row['close']:.2f} USD vào lúc {row['timestamp'].strftime('%Y-%m-%d %H:%M:%S')}. {icon} Lãi/Lỗ: {profit_margin:.2f}%")
+                signals_past.append(f"{icon} Bán: Giá {row['close']:.2f} USD vào lúc {row['timestamp'].strftime('%Y-%m-%d %H:%M:%S')}. Lãi/Lỗ: {profit_margin:.2f}%")
 
         # Gửi tín hiệu qua Telegram
         signal_message = f"Tín hiệu giao dịch cho {symbol}:\n"
@@ -570,6 +575,7 @@ async def signal(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     except Exception as e:
         await update.message.reply_text(f"Đã xảy ra lỗi: {e}")
+
 
 
 
