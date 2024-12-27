@@ -550,14 +550,14 @@ async def signal(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 icon = "\U0001F7E1"  # Màu vàng (lãi/lỗ = 0.00%)
 
             if row['close'] > row['MA50'] and row['MACD'] > row['Signal'] and row['RSI'] < 30:
-                signals_past.append(f"{icon} Mua: Giá {row['close']:.2f} USD vào lúc {row['timestamp'].strftime('%Y-%m-%d %H:%M:%S')}. Lãi/Lỗ: {profit_margin:.2f}%")
+                signals_past.append(f"\U0001F7E2 Mua: Giá {row['close']:.2f} USD vào lúc {row['timestamp'].strftime('%Y-%m-%d %H:%M:%S')}. Lãi/Lỗ: {profit_margin:.2f}% {icon}")
             elif row['close'] <= row['BB_Lower']:
-                signals_past.append(f"{icon} Mua: Giá {row['close']:.2f} USD vào lúc {row['timestamp'].strftime('%Y-%m-%d %H:%M:%S')}. Lãi/Lỗ: {profit_margin:.2f}%")
+                signals_past.append(f"\U0001F7E2 Mua: Giá {row['close']:.2f} USD vào lúc {row['timestamp'].strftime('%Y-%m-%d %H:%M:%S')}. Lãi/Lỗ: {profit_margin:.2f}% {icon}")
 
             if row['close'] < row['MA50'] and row['MACD'] < row['Signal'] and row['RSI'] > 70:
-                signals_past.append(f"{icon} Bán: Giá {row['close']:.2f} USD vào lúc {row['timestamp'].strftime('%Y-%m-%d %H:%M:%S')}. Lãi/Lỗ: {profit_margin:.2f}%")
+                signals_past.append(f"\U0001F534 Bán: Giá {row['close']:.2f} USD vào lúc {row['timestamp'].strftime('%Y-%m-%d %H:%M:%S')}. Lãi/Lỗ: {profit_margin:.2f}% {icon}")
             elif row['close'] >= row['BB_Upper']:
-                signals_past.append(f"{icon} Bán: Giá {row['close']:.2f} USD vào lúc {row['timestamp'].strftime('%Y-%m-%d %H:%M:%S')}. Lãi/Lỗ: {profit_margin:.2f}%")
+                signals_past.append(f"\U0001F534 Bán: Giá {row['close']:.2f} USD vào lúc {row['timestamp'].strftime('%Y-%m-%d %H:%M:%S')}. Lãi/Lỗ: {profit_margin:.2f}% {icon}")
 
         # Gửi tín hiệu qua Telegram
         signal_message = f"Tín hiệu giao dịch cho {symbol}:\n"
