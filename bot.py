@@ -88,7 +88,7 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         ticker = exchange.fetch_ticker(symbol)
         current_price = ticker['last']
         percentage_change = ticker['percentage']
-        volume_24h = ticker.get('quoteVolume', 0)  # Khối lượng giao dịch trong 24 giờ qua
+        volume_24h = ticker.get('quoteVolume', 0)
 
         timestamp = (
             pd.to_datetime(ticker['timestamp'], unit='ms')
@@ -97,7 +97,7 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
             .strftime('%Y-%m-%d %H:%M:%S')
         )
 
-        # Lấy dữ liệu OHLCV để tính toán chỉ báo kỹ thuật và tìm tín hiệu
+        # Lấy dữ liệu OHLCV để tính toán
         timeframe = '6h'
         limit = 500
         ohlcv = exchange.fetch_ohlcv(symbol, timeframe, limit=limit)
@@ -110,55 +110,52 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
         # Tính toán các chỉ báo kỹ thuật
         df['MA50'] = df['close'].rolling(window=50).mean()
-        df['MA100'] = df['close'].rolling(window=100).mean()
         df['EMA12'] = df['close'].ewm(span=12).mean()
         df['EMA26'] = df['close'].ewm(span=26).mean()
         df['MACD'] = df['EMA12'] - df['EMA26']
         df['Signal'] = df['MACD'].ewm(span=9).mean()
-        delta = df['close'].diff()
-        gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
-        loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
-        rs = gain / loss
-        df['RSI'] = 100 - (100 / (1 + rs))
+        df['RSI'] = 100 - (100 / (1 + (df['close'].diff().clip(lower=0).rolling(14).mean() /
+                                       df['close'].diff().clip(upper=0).abs().rolling(14).mean())))
         df['BB_Middle'] = df['close'].rolling(window=20).mean()
         df['BB_Upper'] = df['BB_Middle'] + 2 * df['close'].rolling(window=20).std()
         df['BB_Lower'] = df['BB_Middle'] - 2 * df['close'].rolling(window=20).std()
 
-        # Tìm tín hiệu gần nhất trong 7 ngày qua
+        # Tìm tín hiệu mới nhất trong 7 ngày qua
         recent_signal = None
-        for _, row in df.iterrows():
+        for _, row in df.iterrows():  # Duyệt từ đầu (mới nhất)
             if row['timestamp'] < (df['timestamp'].iloc[-1] - pd.Timedelta(days=7)):
-                continue
+                break
 
-            # Xác định tín hiệu mua
+            # Tín hiệu mua
             if row['close'] > row['MA50'] and row['MACD'] > row['Signal'] and row['RSI'] < 30:
                 recent_signal = {
                     "type": "buy",
                     "price": row['close'],
                     "timestamp": row['timestamp'].strftime('%Y-%m-%d %H:%M:%S')
                 }
+                break
             elif row['close'] <= row['BB_Lower']:
                 recent_signal = {
                     "type": "buy",
                     "price": row['close'],
                     "timestamp": row['timestamp'].strftime('%Y-%m-%d %H:%M:%S')
                 }
+                break
 
-            # Xác định tín hiệu bán
+            # Tín hiệu bán
             if row['close'] < row['MA50'] and row['MACD'] < row['Signal'] and row['RSI'] > 70:
                 recent_signal = {
                     "type": "sell",
                     "price": row['close'],
                     "timestamp": row['timestamp'].strftime('%Y-%m-%d %H:%M:%S')
                 }
+                break
             elif row['close'] >= row['BB_Upper']:
                 recent_signal = {
                     "type": "sell",
                     "price": row['close'],
                     "timestamp": row['timestamp'].strftime('%Y-%m-%d %H:%M:%S')
                 }
-
-            if recent_signal:
                 break
 
         # Chuẩn bị thông tin vị thế
