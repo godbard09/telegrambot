@@ -75,10 +75,21 @@ async def unsubscribe(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         await update.message.reply_text("Bạn chưa đăng ký trước đó.")
 
 
-def escape_markdown(text: str) -> str:
-    """Thoát các ký tự đặc biệt cho Markdown v2."""
+def escape_markdown(text: str, ignore: list = None) -> str:
+    """
+    Thoát các ký tự đặc biệt cho Markdown v2.
+    Các ký tự trong danh sách `ignore` sẽ không bị thoát.
+    """
+    if ignore is None:
+        ignore = []
+    # Các ký tự Markdown cần thoát
     escape_chars = r"_*[]()~`>#+-=|{}.!"
+    # Loại bỏ các ký tự trong danh sách ignore
+    for char in ignore:
+        escape_chars = escape_chars.replace(char, "")
+    # Thay thế các ký tự cần thoát bằng cách thêm dấu '\'
     return re.sub(f"([{re.escape(escape_chars)}])", r"\\\1", text)
+
 
 async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     try:
@@ -138,16 +149,16 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
             prev_row = df.iloc[-2]  # Dữ liệu trước đó
 
             if last_row['close'] > last_row['MA50'] and last_row['close'] > last_row['MA100'] and last_row['MA50'] > prev_row['MA50']:
-                trend = "**TĂNG**"
+                trend = "TĂNG"
             elif last_row['close'] < last_row['MA50'] and last_row['close'] < last_row['MA100'] and last_row['MA50'] < prev_row['MA50']:
-                trend = "**GIẢM**"
+                trend = "GIẢM"
             else:
-                trend = "**ĐI NGANG**"
+                trend = "ĐI NGANG"
 
-        # Tìm tín hiệu mới nhất (logic như trước)
+        # Tìm tín hiệu mới nhất
         recent_signal = None
         max_timestamp = None
-        now = pd.Timestamp.now(tz=vietnam_tz)  # Thời gian hiện tại theo múi giờ Việt Nam
+        now = pd.Timestamp.now(tz=vietnam_tz)
         for _, row in df.iterrows():
             if row['timestamp'] < (now - pd.Timedelta(days=7)):
                 continue
@@ -188,22 +199,20 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         # Chuẩn bị thông tin vị thế
         position_info = "Không có tín hiệu mua/bán trong 7 ngày qua."
         if recent_signal:
-            signal_type = f"**{recent_signal['type']}**"  # In đậm và viết hoa MUA/BÁN
+            signal_type = f"**{recent_signal['type']}**"
             signal_price = recent_signal['price']
             signal_time = recent_signal['timestamp']
             profit_loss = ((current_price - signal_price) / signal_price) * 100 if recent_signal['type'] == 'MUA' else (
                 (signal_price - current_price) / signal_price) * 100
 
-            # Thêm icon sau lãi/lỗ
-            if profit_loss > 0:
-                profit_color = f"{profit_loss:.2f}% 🟢"
-            elif profit_loss < 0:
-                profit_color = f"{profit_loss:.2f}% 🔴"
-            else:
-                profit_color = f"{profit_loss:.2f}% 🟡"
+            profit_color = (
+                f"{profit_loss:.2f}% 🟢" if profit_loss > 0 else
+                f"{profit_loss:.2f}% 🔴" if profit_loss < 0 else
+                f"{profit_loss:.2f}% 🟡"
+            )
 
             position_info = (
-                f"- Xu hướng: {trend}\n"
+                f"- Xu hướng: **{trend}**\n"
                 f"- Vị thế hiện tại: {signal_type}\n"
                 f"- Ngày {recent_signal['type'].lower()}: {signal_time}\n"
                 f"- Giá {recent_signal['type'].lower()}: {signal_price:.2f} USD\n"
@@ -217,12 +226,14 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
             f"- Biến động trong 24 giờ qua: {percentage_change:.2f}%\n"
             f"- Khối lượng giao dịch trong 24 giờ qua: {volume_24h:.2f} USD\n"
             f"- Thời gian cập nhật: {timestamp}\n\n"
-            f"Thông tin vị thế:\n{position_info}"
+            f"Thông tin vị thế:\n{position_info}",
+            ignore=["*"]
         )
         await update.message.reply_text(message, parse_mode="MarkdownV2")
 
     except Exception as e:
         await update.message.reply_text(f"Đã xảy ra lỗi: {e}")
+
 
 
 
