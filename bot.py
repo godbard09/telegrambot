@@ -102,30 +102,36 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         )
 
         # Lấy tín hiệu gần nhất trong 7 ngày qua từ signal_history
-        signal = signal_history.get(symbol, None)
-        if signal:
-            # Chuyển đổi thời gian tín hiệu sang múi giờ Việt Nam
-            signal_time = pd.to_datetime(signal.get('time')).tz_localize('UTC').tz_convert(vietnam_tz)
+        signals = signal_history.get(symbol, [])
+        if signals:
+            # Lọc các tín hiệu trong 7 ngày qua
             seven_days_ago = pd.Timestamp.now(vietnam_tz) - pd.Timedelta(days=7)
+            valid_signals = [
+                signal for signal in signals
+                if pd.to_datetime(signal['time']).tz_localize('UTC').tz_convert(vietnam_tz) >= seven_days_ago
+            ]
 
-            if signal_time >= seven_days_ago:
-                position = signal.get('type', 'N/A')  # "buy" hoặc "sell"
-                entry_price = signal.get('price', None)
+            if valid_signals:
+                # Lấy tín hiệu gần nhất
+                latest_signal = max(
+                    valid_signals,
+                    key=lambda s: pd.to_datetime(s['time']).tz_localize('UTC').tz_convert(vietnam_tz)
+                )
+                position = latest_signal['type']  # "buy" hoặc "sell"
+                entry_price = latest_signal['price']
+                entry_time = latest_signal['time']
 
-                if entry_price is not None:
-                    # Tính lãi/lỗ
-                    profit_loss = ((current_price - entry_price) / entry_price) * 100 if position == 'buy' else \
-                                  ((entry_price - current_price) / entry_price) * 100
+                # Tính lãi/lỗ
+                profit_loss = ((current_price - entry_price) / entry_price) * 100 if position == 'buy' else \
+                              ((entry_price - current_price) / entry_price) * 100
 
-                    # Tạo thông tin vị thế
-                    position_info = (
-                        f"- Vị thế hiện tại: {'Mua' if position == 'buy' else 'Bán'}\n"
-                        f"- Giá vào lệnh: {entry_price:.2f} USD\n"
-                        f"- Lãi/Lỗ: {profit_loss:.2f}%\n"
-                        f"- Thời gian tín hiệu: {signal.get('time')}"
-                    )
-                else:
-                    position_info = "- Dữ liệu tín hiệu không đầy đủ."
+                # Tạo thông tin vị thế
+                position_info = (
+                    f"- Vị thế hiện tại: {'Mua' if position == 'buy' else 'Bán'}\n"
+                    f"- Giá vào lệnh: {entry_price:.2f} USD\n"
+                    f"- Lãi/Lỗ: {profit_loss:.2f}%\n"
+                    f"- Thời gian tín hiệu: {entry_time}"
+                )
             else:
                 position_info = "- Không có tín hiệu trong 7 ngày qua."
         else:
@@ -144,7 +150,6 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
     except Exception as e:
         await update.message.reply_text(f"Đã xảy ra lỗi: {e}")
-
 
 
 
