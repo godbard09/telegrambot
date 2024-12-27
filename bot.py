@@ -149,11 +149,11 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
             prev_row = df.iloc[-2]  # Dữ liệu trước đó
 
             if last_row['close'] > last_row['MA50'] and last_row['close'] > last_row['MA100'] and last_row['MA50'] > prev_row['MA50']:
-                trend = "TĂNG"
+                trend = "**TĂNG**"
             elif last_row['close'] < last_row['MA50'] and last_row['close'] < last_row['MA100'] and last_row['MA50'] < prev_row['MA50']:
-                trend = "GIẢM"
+                trend = "**GIẢM**"
             else:
-                trend = "ĐI NGANG"
+                trend = "**ĐI NGANG**"
 
         # Tìm tín hiệu mới nhất
         recent_signal = None
@@ -212,7 +212,7 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
             )
 
             position_info = (
-                f"- Xu hướng: **{trend}**\n"
+                f"- Xu hướng: {trend}\n"
                 f"- Vị thế hiện tại: {signal_type}\n"
                 f"- Ngày {recent_signal['type'].lower()}: {signal_time}\n"
                 f"- Giá {recent_signal['type'].lower()}: {signal_price:.2f} USD\n"
