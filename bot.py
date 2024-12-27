@@ -97,17 +97,46 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
             .strftime('%Y-%m-%d %H:%M:%S')
         )
 
+        # Lấy tín hiệu mua/bán gần nhất trong 7 ngày qua từ lịch sử tín hiệu
+        signals_past = signal_history.get(symbol, [])  # Sử dụng lịch sử tín hiệu toàn cục
+        recent_signal = None
+
+        for signal in reversed(signals_past):  # Duyệt ngược để lấy tín hiệu gần nhất
+            signal_time = pd.to_datetime(signal['timestamp'])
+            if signal_time >= (pd.Timestamp.now() - pd.Timedelta(days=7)):
+                recent_signal = signal
+                break
+
+        # Chuẩn bị thông tin vị thế
+        position_info = "Không có tín hiệu mua/bán trong 7 ngày qua."
+        if recent_signal:
+            signal_type = "Mua" if recent_signal['type'] == 'buy' else "Bán"
+            signal_price = recent_signal['price']
+            signal_time = recent_signal['timestamp']
+            profit_loss = ((current_price - signal_price) / signal_price) * 100 if recent_signal['type'] == 'buy' else (
+                    (signal_price - current_price) / signal_price) * 100
+
+            position_info = (
+                f"- Vị thế hiện tại: {signal_type}\n"
+                f"- Ngày {signal_type.lower()}: {signal_time}\n"
+                f"- Giá {signal_type.lower()}: {signal_price:.2f} USD\n"
+                f"- Lãi/Lỗ: {profit_loss:.2f}%"
+            )
+
+        # Tạo thông báo trả về
         message = (
             f"Thông tin giá hiện tại cho {symbol}:\n"
             f"- Giá hiện tại: {current_price:.2f} USD\n"
             f"- Biến động trong 24 giờ qua: {percentage_change:.2f}%\n"
             f"- Khối lượng giao dịch trong 24 giờ qua: {volume_24h:.2f} USD\n"
-            f"- Thời gian cập nhật: {timestamp}"
+            f"- Thời gian cập nhật: {timestamp}\n\n"
+            f"Thông tin vị thế:\n{position_info}"
         )
         await update.message.reply_text(message)
 
     except Exception as e:
         await update.message.reply_text(f"Đã xảy ra lỗi: {e}")
+
 
 
 
