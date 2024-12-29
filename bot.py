@@ -214,17 +214,21 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
                 f"{profit_loss:.2f}% 🟡"
             )
 
-        # Xác định vùng giá dựa trên Bollinger Bands
-        last_row = df.iloc[-1]  # Dòng dữ liệu mới nhất
-        if recent_signal['type'] == "MUA":
-            buy_zone_lower = last_row['BB_Lower']  # Dải dưới Bollinger Band
-            buy_zone_upper = last_row['BB_Middle']  # Giá trung bình Bollinger Band
-            trade_zone = f"Vùng giá mua: {buy_zone_lower:.2f} - {buy_zone_upper:.2f} {quote_currency}"
-        else:
-            sell_zone_lower = last_row['BB_Middle']  # Giá trung bình Bollinger Band
-            sell_zone_upper = last_row['BB_Upper']  # Dải trên Bollinger Band
-            trade_zone = f"Vùng giá bán: {sell_zone_lower:.2f} - {sell_zone_upper:.2f} {quote_currency}"
-        
+
+            # Lấy thông tin Bollinger Bands từ dòng dữ liệu gần nhất
+            last_row = df.iloc[-1]
+            bb_lower = last_row['BB_Lower']  # Dải dưới Bollinger Band
+            bb_middle = last_row['BB_Middle']  # Giá trung bình Bollinger Band
+            bb_upper = last_row['BB_Upper']  # Dải trên Bollinger Band
+ 
+            # Xác định vùng giá mua/bán dựa trên vị thế hiện tại
+            if recent_signal['type'] == "MUA":
+               # Vùng giá mua: Dải dưới -> Giá trung bình
+               trade_zone = f"Vùng giá mua: {bb_lower:.2f} - {bb_middle:.2f} {quote_currency}"
+            else:
+               # Vùng giá bán: Giá trung bình -> Dải trên
+               trade_zone = f"Vùng giá bán: {bb_middle:.2f} - {bb_upper:.2f} {quote_currency}"
+           
             position_info = (
                 f"- Xu hướng: **{trend}**\n"
                 f"- Vị thế hiện tại: {signal_type}\n"
