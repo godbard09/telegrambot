@@ -119,7 +119,7 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         )
 
         # Lấy dữ liệu OHLCV để tính toán
-        timeframe = '6h'
+        timeframe = '1h'
         limit = 500
         ohlcv = exchange.fetch_ohlcv(symbol, timeframe, limit=limit)
         df = pd.DataFrame(ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
@@ -534,7 +534,7 @@ async def list_signals(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         # Lấy danh sách mã giao dịch
         markets = exchange.load_markets()
         symbols = list(markets.keys())
-        timeframe = '6h'
+        timeframe = '1h'
         limit = 200
         buy_signals = []
         sell_signals = []
@@ -633,7 +633,7 @@ async def signal(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             await update.message.reply_text("Cặp giao dịch không hợp lệ. Vui lòng sử dụng định dạng như BTC/USDT.")
             return
 
-        timeframe = '6h'
+        timeframe = '1h'
         limit = 500
 
         markets = exchange.load_markets()
