@@ -220,7 +220,7 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
             buy_zone_lower = last_row['BB_Lower']  # Dải dưới Bollinger Band
             buy_zone_upper = last_row['BB_Middle']  # Giá trung bình Bollinger Band
             trade_zone = f"Vùng giá mua: {buy_zone_lower:.2f} - {buy_zone_upper:.2f} {quote_currency}"
-    else:
+        else:
             sell_zone_lower = last_row['BB_Middle']  # Giá trung bình Bollinger Band
             sell_zone_upper = last_row['BB_Upper']  # Dải trên Bollinger Band
             trade_zone = f"Vùng giá bán: {sell_zone_lower:.2f} - {sell_zone_upper:.2f} {quote_currency}"
