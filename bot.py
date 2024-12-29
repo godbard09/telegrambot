@@ -103,6 +103,9 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
             await update.message.reply_text(f"Mã giao dịch không hợp lệ: {symbol}. Vui lòng kiểm tra lại.")
             return
 
+        # Lấy đơn vị giá từ cặp giao dịch
+        quote_currency = symbol.split('/')[1]  # Phần sau dấu "/"
+
         ticker = exchange.fetch_ticker(symbol)
         current_price = ticker['last']
         percentage_change = ticker['percentage']
@@ -140,7 +143,7 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         df['RSI'] = 100 - (100 / (1 + rs))
         df['BB_Middle'] = df['close'].rolling(window=20).mean()
         df['BB_Upper'] = df['BB_Middle'] + 2 * df['close'].rolling(window=20).std()
-        df['BB_Lower'] = df['BB_Middle'] - 2 * df['close'].rolling(window=20).std()
+        df['BB_Lower'] = df['BB_Middle'] - df['close'].rolling(window=20).std()
 
         # Xác định xu hướng
         trend = "Không xác định"
@@ -215,16 +218,16 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
                 f"- Xu hướng: **{trend}**\n"
                 f"- Vị thế hiện tại: {signal_type}\n"
                 f"- Ngày {recent_signal['type'].lower()}: {signal_time}\n"
-                f"- Giá {recent_signal['type'].lower()}: {signal_price:.2f} USD\n"
+                f"- Giá {recent_signal['type'].lower()}: {signal_price:.2f} {quote_currency}\n"
                 f"- Lãi/Lỗ: {profit_color}"
             )
 
         # Escape Markdown và tạo thông báo trả về
         message = escape_markdown(
             f"Thông tin giá hiện tại cho {symbol}:\n"
-            f"- Giá hiện tại: {current_price:.2f} USD\n"
+            f"- Giá hiện tại: {current_price:.2f} {quote_currency}\n"
             f"- Biến động trong 24 giờ qua: {percentage_change:.2f}%\n"
-            f"- Khối lượng giao dịch trong 24 giờ qua: {volume_24h:.2f} USD\n"
+            f"- Khối lượng giao dịch trong 24 giờ qua: {volume_24h:.2f} {quote_currency}\n"
             f"- Thời gian cập nhật: {timestamp}\n\n"
             f"Thông tin vị thế:\n{position_info}",
             ignore=["*"]
@@ -233,6 +236,7 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
     except Exception as e:
         await update.message.reply_text(f"Đã xảy ra lỗi: {e}")
+
 
 
 async def chart(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
