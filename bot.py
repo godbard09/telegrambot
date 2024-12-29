@@ -166,7 +166,7 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
             if row['timestamp'] < (now - pd.Timedelta(days=7)):
                 continue
 
-            if row['close'] > row['MA50'] and row['MACD'] > row['Signal'] and row['RSI'] < 30:
+            if row['close'] > row['MA50'] and row['MACD'] > row['Signal'] and row['RSI'] < 30 and row['close'] <= row['BB_Lower']:
                 if max_timestamp is None or row['timestamp'] > max_timestamp:
                     max_timestamp = row['timestamp']
                     recent_signal = {
@@ -174,15 +174,8 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
                         "price": row['close'],
                         "timestamp": row['timestamp'].strftime('%Y-%m-%d %H:%M:%S')
                     }
-            elif row['close'] <= row['BB_Lower']:
-                if max_timestamp is None or row['timestamp'] > max_timestamp:
-                    max_timestamp = row['timestamp']
-                    recent_signal = {
-                        "type": "MUA",
-                        "price": row['close'],
-                        "timestamp": row['timestamp'].strftime('%Y-%m-%d %H:%M:%S')
-                    }
-            if row['close'] < row['MA50'] and row['MACD'] < row['Signal'] and row['RSI'] > 70:
+    
+            if row['close'] < row['MA50'] and row['MACD'] < row['Signal'] and row['RSI'] > 70 and row['close'] >= row['BB_Upper']:
                 if max_timestamp is None or row['timestamp'] > max_timestamp:
                     max_timestamp = row['timestamp']
                     recent_signal = {
@@ -190,14 +183,7 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
                         "price": row['close'],
                         "timestamp": row['timestamp'].strftime('%Y-%m-%d %H:%M:%S')
                     }
-            elif row['close'] >= row['BB_Upper']:
-                if max_timestamp is None or row['timestamp'] > max_timestamp:
-                    max_timestamp = row['timestamp']
-                    recent_signal = {
-                        "type": "BÁN",
-                        "price": row['close'],
-                        "timestamp": row['timestamp'].strftime('%Y-%m-%d %H:%M:%S')
-                    }
+        
 
         # Chuẩn bị thông tin vị thế
         position_info = "Không có tín hiệu mua/bán trong 7 ngày qua."
@@ -711,15 +697,13 @@ async def signal(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             else:
                 icon = "\U0001F7E1"  # Màu vàng (lãi/lỗ = 0.00%)
 
-            if row['close'] > row['MA50'] and row['MACD'] > row['Signal'] and row['RSI'] < 30:
+            if row['close'] > row['MA50'] and row['MACD'] > row['Signal'] and row['RSI'] < 30 and row['close'] <= row['BB_Lower']:
                 signals_past.append(f"\U0001F7E2 Mua: Giá {row['close']:.2f} {unit} vào lúc {row['timestamp'].strftime('%Y-%m-%d %H:%M:%S')}. {icon} Lãi/Lỗ: {profit_margin:.2f}%")
-            elif row['close'] <= row['BB_Lower']:
-                signals_past.append(f"\U0001F7E2 Mua: Giá {row['close']:.2f} {unit} vào lúc {row['timestamp'].strftime('%Y-%m-%d %H:%M:%S')}. {icon} Lãi/Lỗ: {profit_margin:.2f}%")
+        
 
-            if row['close'] < row['MA50'] and row['MACD'] < row['Signal'] and row['RSI'] > 70:
+            if row['close'] < row['MA50'] and row['MACD'] < row['Signal'] and row['RSI'] > 70 and row['close'] >= row['BB_Upper']:
                 signals_past.append(f"\U0001F534 Bán: Giá {row['close']:.2f} {unit} vào lúc {row['timestamp'].strftime('%Y-%m-%d %H:%M:%S')}. {icon} Lãi/Lỗ: {profit_margin:.2f}%")
-            elif row['close'] >= row['BB_Upper']:
-                signals_past.append(f"\U0001F534 Bán: Giá {row['close']:.2f} {unit} vào lúc {row['timestamp'].strftime('%Y-%m-%d %H:%M:%S')}. {icon} Lãi/Lỗ: {profit_margin:.2f}%")
+    
 
         # Gửi tín hiệu qua Telegram
         signal_message = f"Tín hiệu giao dịch cho {symbol}:\n"
