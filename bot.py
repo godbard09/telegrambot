@@ -581,15 +581,11 @@ async def list_signals(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
                 current_price = last_row['close']
 
                 # Tín hiệu mua
-                if last_row['close'] > last_row['MA50'] and last_row['MACD'] > last_row['Signal'] and last_row['RSI'] < 30:
-                    buy_signals.append((symbol, current_price, current_time))
-                elif last_row['close'] <= last_row['BB_Lower']:
+                if last_row['close'] > last_row['MA50'] and last_row['MACD'] > last_row['Signal'] and last_row['RSI'] < 30 and last_row['close'] <= last_row['BB_Lower']:
                     buy_signals.append((symbol, current_price, current_time))
 
                 # Tín hiệu bán
-                if last_row['close'] < last_row['MA50'] and last_row['MACD'] < last_row['Signal'] and last_row['RSI'] > 70:
-                    sell_signals.append((symbol, current_price, current_time))
-                elif last_row['close'] >= last_row['BB_Upper']:
+                if last_row['close'] < last_row['MA50'] and last_row['MACD'] < last_row['Signal'] and last_row['RSI'] > 70 and last_row['close'] >= last_row['BB_Upper']:
                     sell_signals.append((symbol, current_price, current_time))
 
             except Exception as e:
@@ -632,7 +628,6 @@ async def list_signals(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
     except Exception as e:
         await update.message.reply_text(f"Đã xảy ra lỗi: {e}")
-
 
 
 
@@ -694,15 +689,11 @@ async def signal(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         current_price = last_row['close']
 
         # Tín hiệu mua
-        if last_row['close'] > last_row['MA50'] and last_row['MACD'] > last_row['Signal'] and last_row['RSI'] < 30:
-            signals_now.append(f"\U0001F7E2 Mua: Giá {current_price:.2f} {unit} vào lúc {current_time}.")
-        elif last_row['close'] <= last_row['BB_Lower']:
+        if last_row['close'] > last_row['MA50'] and last_row['MACD'] > last_row['Signal'] and last_row['RSI'] < 30 and last_row['close'] <= last_row['BB_Lower']:
             signals_now.append(f"\U0001F7E2 Mua: Giá {current_price:.2f} {unit} vào lúc {current_time}.")
 
         # Tín hiệu bán
-        if last_row['close'] < last_row['MA50'] and last_row['MACD'] < last_row['Signal'] and last_row['RSI'] > 70:
-            signals_now.append(f"\U0001F534 Bán: Giá {current_price:.2f} {unit} vào lúc {current_time}.")
-        elif last_row['close'] >= last_row['BB_Upper']:
+        if last_row['close'] < last_row['MA50'] and last_row['MACD'] < last_row['Signal'] and last_row['RSI'] > 70 and last_row['close'] >= last_row['BB_Upper']:
             signals_now.append(f"\U0001F534 Bán: Giá {current_price:.2f} {unit} vào lúc {current_time}.")
 
         # Phát hiện tín hiệu mua bán trong 7 ngày qua
@@ -791,16 +782,13 @@ async def monitor_signals(context: ContextTypes.DEFAULT_TYPE) -> None:
             current_price = last_row['close']
 
             # Tín hiệu mua
-            if last_row['close'] > last_row['MA50'] and last_row['MACD'] > last_row['Signal'] and last_row['RSI'] < 30:
+            if last_row['close'] > last_row['MA50'] and last_row['MACD'] > last_row['Signal'] and last_row['RSI'] < 30 and last_row['close'] <= last_row['BB_Lower']:
                 signals.append(f"Mua: Giá {current_price:.2f} USD tại {current_time}. Lý do: Cắt MA50, MACD tăng và RSI dưới 30.")
-            elif last_row['close'] <= last_row['BB_Lower']:
-                signals.append(f"Mua: Giá {current_price:.2f} USD tại {current_time}. Lý do: Gần dải BB dưới (quá bán).")
 
             # Tín hiệu bán
-            if last_row['close'] < last_row['MA50'] and last_row['MACD'] < last_row['Signal'] and last_row['RSI'] > 70:
+            if last_row['close'] < last_row['MA50'] and last_row['MACD'] < last_row['Signal'] and last_row['RSI'] > 70 and last_row['close'] >= last_row['BB_Upper']:
                 signals.append(f"Bán: Giá {current_price:.2f} USD tại {current_time}. Lý do: Cắt MA50, MACD giảm và RSI trên 70.")
-            elif last_row['close'] >= last_row['BB_Upper']:
-                signals.append(f"Bán: Giá {current_price:.2f} USD tại {current_time}. Lý do: Gần dải BB trên (quá mua).")
+
 
             # Gửi tín hiệu cho tất cả subscribers
             if signals:
