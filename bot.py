@@ -215,41 +215,41 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
             )
 
 
-        # Lấy thông tin Bollinger Bands từ dòng dữ liệu gần nhất
-        last_row = df.iloc[-1]
-        bb_lower = last_row['BB_Lower']  # Dải dưới Bollinger Band
-        bb_middle = last_row['BB_Middle']  # Giá trung bình Bollinger Band
-        bb_upper = last_row['BB_Upper']  # Dải trên Bollinger Band
-        rsi = last_row['RSI']
-        ma50 = last_row['MA50']
+            # Lấy thông tin Bollinger Bands từ dòng dữ liệu gần nhất
+            last_row = df.iloc[-1]
+            bb_lower = last_row['BB_Lower']  # Dải dưới Bollinger Band
+            bb_middle = last_row['BB_Middle']  # Giá trung bình Bollinger Band
+            bb_upper = last_row['BB_Upper']  # Dải trên Bollinger Band
+            rsi = last_row['RSI']
+            ma50 = last_row['MA50']
             
-        # Xác định vùng giá dựa trên Bollinger Bands, RSI và MA50
-        if recent_signal['type'] == "MUA":
-           # Vùng giá mua:
-           # - Sử dụng Bollinger Band Lower làm giới hạn dưới.
-           # - Giá MA50 làm tham chiếu nếu MA50 < BB_Middle.
-           # - RSI < 30 được xem là vùng mua hấp dẫn.
-           if rsi < 30:
-              buy_zone_lower = bb_lower
-              buy_zone_upper = min(ma50, bb_middle)  # Giới hạn trên là giá trị nhỏ hơn giữa MA50 và BB_Middle
-           else:
-              buy_zone_lower = bb_lower
-              buy_zone_upper = bb_middle
+            # Xác định vùng giá dựa trên Bollinger Bands, RSI và MA50
+            if recent_signal['type'] == "MUA":
+                # Vùng giá mua:
+                # - Sử dụng Bollinger Band Lower làm giới hạn dưới.
+                # - Giá MA50 làm tham chiếu nếu MA50 < BB_Middle.
+                # - RSI < 30 được xem là vùng mua hấp dẫn.
+                if rsi < 30:
+                    buy_zone_lower = bb_lower
+                    buy_zone_upper = min(ma50, bb_middle)  # Giới hạn trên là giá trị nhỏ hơn giữa MA50 và BB_Middle
+                else:
+                    buy_zone_lower = bb_lower
+                    buy_zone_upper = bb_middle
 
-           trade_zone = f"Vùng giá mua: {buy_zone_lower:.2f} - {buy_zone_upper:.2f} {quote_currency}"
-        else:
-           # Vùng giá bán:
-           # - Sử dụng Bollinger Band Upper làm giới hạn trên.
-           # - Giá MA50 làm tham chiếu nếu MA50 > BB_Middle.
-           # - RSI > 70 được xem là vùng bán.
-           if rsi > 70:
-              sell_zone_lower = max(ma50, bb_middle)  # Giới hạn dưới là giá trị lớn hơn giữa MA50 và BB_Middle
-              sell_zone_upper = bb_upper
-           else:
-              sell_zone_lower = bb_middle
-              sell_zone_upper = bb_upper
+                trade_zone = f"Vùng giá mua: {buy_zone_lower:.2f} - {buy_zone_upper:.2f} {quote_currency}"
+            else:
+                # Vùng giá bán:
+                # - Sử dụng Bollinger Band Upper làm giới hạn trên.
+                # - Giá MA50 làm tham chiếu nếu MA50 > BB_Middle.
+                # - RSI > 70 được xem là vùng bán.
+                if rsi > 70:
+                    sell_zone_lower = max(ma50, bb_middle)  # Giới hạn dưới là giá trị lớn hơn giữa MA50 và BB_Middle
+                    sell_zone_upper = bb_upper
+                else:
+                    sell_zone_lower = bb_middle
+                    sell_zone_upper = bb_upper
 
-           trade_zone = f"Vùng giá bán: {sell_zone_lower:.2f} - {sell_zone_upper:.2f} {quote_currency}"
+                trade_zone = f"Vùng giá bán: {sell_zone_lower:.2f} - {sell_zone_upper:.2f} {quote_currency}"
            
             position_info = (
                 f"- Xu hướng: **{trend}**\n"
