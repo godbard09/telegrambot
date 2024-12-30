@@ -228,12 +228,12 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
                 # Vùng giá mua dựa trên điều kiện tín hiệu mua:
                 if last_row['close'] > last_row['MA50'] and last_row['MACD'] > last_row['Signal'] and rsi < 30:
                     # RSI thấp (<30) là vùng mua hấp dẫn, giá giới hạn giữa BB Lower và MA50
-                    buy_zone_lower = bb_lower
-                    buy_zone_upper = min(ma50, bb_middle)  # Lấy giá trị nhỏ hơn giữa MA50 và BB Middle
+                    buy_zone_lower = min(last_row['close'], last_row['BB_Lower'])
+                    buy_zone_upper = max(last_row['close'], last_row['MA50'])
                 elif last_row['close'] <= last_row['BB_Lower']:
                     # Nếu giá chạm BB Lower, lấy vùng giá từ BB Lower đến MA50
-                    buy_zone_lower = bb_lower
-                    buy_zone_upper = ma50
+                    buy_zone_lower = last_row['close'] * 0.98
+                    buy_zone_upper = last_row['close'] * 1.02
                 else:
                     # Điều kiện mặc định nếu không khớp các trường hợp trên
                     buy_zone_lower = bb_lower
@@ -245,12 +245,12 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
                 # Vùng giá bán dựa trên điều kiện tín hiệu bán:
                 if last_row['close'] < last_row['MA50'] and last_row['MACD'] < last_row['Signal'] and rsi > 70:
                     # RSI cao (>70) là vùng bán, giá giới hạn giữa BB Upper và MA50
-                    sell_zone_lower = max(ma50, bb_middle)  # Lấy giá trị lớn hơn giữa MA50 và BB Middle
-                    sell_zone_upper = bb_upper
+                    sell_zone_lower = min(last_row['close'], last_row['MA50'])
+                    sell_zone_upper = max(last_row['close'], last_row['BB_Upper'])
                 elif last_row['close'] >= last_row['BB_Upper']:
                     # Nếu giá chạm BB Upper, lấy vùng giá từ MA50 đến BB Upper
-                    sell_zone_lower = ma50
-                    sell_zone_upper = bb_upper
+                    sell_zone_lower = last_row['close'] * 0.98
+                    sell_zone_upper = last_row['close'] * 1.02
                 else:
                     # Điều kiện mặc định nếu không khớp các trường hợp trên
                     sell_zone_lower = bb_middle
