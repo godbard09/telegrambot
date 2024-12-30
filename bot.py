@@ -26,9 +26,9 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         "Chào mừng! Tôi là bot phân tích kỹ thuật của anh Hưng Thạnh đẹp trai.\n"
         "Dưới đây là các lệnh bạn có thể sử dụng:\n"
         "Gõ /chart <mã giao dịch> để xem biểu đồ kỹ thuật (ví dụ: /chart BTC/USDT).\n"
-        "Gõ /top để xem top 10 cặp giao dịch tăng, giảm mạnh nhất và khối lượng lớn nhất trong 24 giờ qua.\n"
+        "Gõ /top để xem top 10 cặp giao dịch tăng, giảm mạnh nhất 24 giờ qua.\n"
         "Gõ /signal <mã giao dịch> để nhận tín hiệu mua bán và lưu lịch sử.\n"
-        "Gõ /cap <mã giao dịch> để xem thông tin giá hiện tại.\n"
+        "Gõ /smarttrade <mã giao dịch> để xem khuyến nghị tự động.\n"
         "Gõ /list để xem top 10 cặp giao dịch có tín hiệu mua và bán gần đây.\n"
         "Gõ /subscribe để đăng ký nhận thông báo tự động.\n"
         "Gõ /unsubscribe để hủy đăng ký nhận thông báo."
@@ -213,58 +213,12 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
                 f"{profit_loss:.2f}% 🔴" if profit_loss < 0 else
                 f"{profit_loss:.2f}% 🟡"
             )
-
-
-            # Lấy thông tin Bollinger Bands từ dòng dữ liệu gần nhất
-            last_row = df.iloc[-1]
-            bb_lower = last_row['BB_Lower']  # Dải dưới Bollinger Band
-            bb_middle = last_row['BB_Middle']  # Giá trung bình Bollinger Band
-            bb_upper = last_row['BB_Upper']  # Dải trên Bollinger Band
-            rsi = last_row['RSI']
-            ma50 = last_row['MA50']
-            
-            # Xác định vùng giá dựa trên Bollinger Bands, RSI, và MA50
-            if recent_signal['type'] == "MUA":
-                # Vùng giá mua dựa trên điều kiện tín hiệu mua:
-                if last_row['close'] > last_row['MA50'] and last_row['MACD'] > last_row['Signal'] and rsi < 30:
-                    # RSI thấp (<30) là vùng mua hấp dẫn, giá giới hạn giữa BB Lower và MA50
-                    buy_zone_lower = min(last_row['close'], last_row['BB_Lower'])
-                    buy_zone_upper = max(last_row['close'], last_row['MA50'])
-                elif last_row['close'] <= last_row['BB_Lower']:
-                    # Nếu giá chạm BB Lower, lấy vùng giá từ BB Lower đến MA50
-                    buy_zone_lower = last_row['close'] * 0.98
-                    buy_zone_upper = last_row['close'] * 1.02
-                else:
-                    # Điều kiện mặc định nếu không khớp các trường hợp trên
-                    buy_zone_lower = bb_lower
-                    buy_zone_upper = bb_middle
-
-                trade_zone = f"Vùng giá mua: {buy_zone_lower:.2f} - {buy_zone_upper:.2f} {quote_currency}"
-
-            else:  # recent_signal['type'] == "BÁN"
-                # Vùng giá bán dựa trên điều kiện tín hiệu bán:
-                if last_row['close'] < last_row['MA50'] and last_row['MACD'] < last_row['Signal'] and rsi > 70:
-                    # RSI cao (>70) là vùng bán, giá giới hạn giữa BB Upper và MA50
-                    sell_zone_lower = min(last_row['close'], last_row['MA50'])
-                    sell_zone_upper = max(last_row['close'], last_row['BB_Upper'])
-                elif last_row['close'] >= last_row['BB_Upper']:
-                    # Nếu giá chạm BB Upper, lấy vùng giá từ MA50 đến BB Upper
-                    sell_zone_lower = last_row['close'] * 0.98
-                    sell_zone_upper = last_row['close'] * 1.02
-                else:
-                    # Điều kiện mặc định nếu không khớp các trường hợp trên
-                    sell_zone_lower = bb_middle
-                    sell_zone_upper = bb_upper
-
-                trade_zone = f"Vùng giá bán: {sell_zone_lower:.2f} - {sell_zone_upper:.2f} {quote_currency}"
-
            
             position_info = (
                 f"- Xu hướng: **{trend}**\n"
                 f"- Vị thế hiện tại: {signal_type}\n"
                 f"- Ngày {recent_signal['type'].lower()}: {signal_time}\n"
                 f"- Giá {recent_signal['type'].lower()}: {signal_price:.2f} {quote_currency}\n"
-                f"- {trade_zone}\n"
                 f"- Lãi/Lỗ: {profit_color}"
             )
 
@@ -477,26 +431,22 @@ async def chart(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 
 async def top(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Gửi danh sách top 10 cặp giao dịch tăng, giảm mạnh nhất và có khối lượng lớn nhất với nút tương tác."""
+    """Gửi danh sách top 10 cặp giao dịch tăng, giảm mạnh nhất với nút tương tác."""
     try:
         # Lấy dữ liệu thị trường từ KuCoin
         markets = exchange.fetch_tickers()
         data = []
-        volume_data = []
 
         # Tính toán phần trăm biến động giá và khối lượng giao dịch
         for symbol, ticker in markets.items():
             change = ticker.get('percentage')
-            volume_24h = ticker.get('quoteVolume', 0)  # Khối lượng giao dịch 24 giờ
             if change is not None:
                 data.append((symbol, change))
-            if volume_24h > 0:
-                volume_data.append((symbol, volume_24h))
 
-        # Lấy top 10 tăng, giảm mạnh nhất và khối lượng lớn nhất
+
+        # Lấy top 10 tăng, giảm mạnh nhất 
         top_gainers = sorted(data, key=lambda x: x[1], reverse=True)[:10]
         top_losers = sorted(data, key=lambda x: x[1])[:10]
-        top_volumes = sorted(volume_data, key=lambda x: x[1], reverse=True)[:10]
 
         # Tạo danh sách nút tương tác cho top tăng
         gainers_keyboard = [
@@ -510,11 +460,6 @@ async def top(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             for symbol, change in top_losers
         ]
 
-        # Tạo danh sách nút tương tác cho khối lượng giao dịch lớn nhất
-        volumes_keyboard = [
-            [InlineKeyboardButton(f"{symbol}: {volume:.2f} USD", callback_data=symbol)]
-            for symbol, volume in top_volumes
-        ]
 
         # Gửi danh sách top tăng mạnh nhất
         await update.message.reply_text(
@@ -528,11 +473,7 @@ async def top(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             reply_markup=InlineKeyboardMarkup(losers_keyboard)
         )
 
-        # Gửi danh sách top khối lượng lớn nhất
-        await update.message.reply_text(
-            "Top 10 cặp giao dịch có khối lượng lớn nhất trong 24 giờ qua:",
-            reply_markup=InlineKeyboardMarkup(volumes_keyboard)
-        )
+
     except Exception as e:
         await update.message.reply_text(f"Đã xảy ra lỗi: {e}")
 
@@ -846,7 +787,7 @@ def main():
     application.add_handler(CommandHandler("signal", signal))
     application.add_handler(CommandHandler("top", top))  # Thêm handler cho /top
     application.add_handler(CommandHandler("list", list_signals))
-    application.add_handler(CommandHandler("cap", current_price))  # Thêm handler cho /cap
+    application.add_handler(CommandHandler("smarttrade", current_price))  # Thêm handler cho /cap
     application.add_handler(CallbackQueryHandler(button))  # Thêm handler cho nút bấm từ /top
 
     # Chạy webhook
