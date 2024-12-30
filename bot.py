@@ -223,33 +223,41 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
             rsi = last_row['RSI']
             ma50 = last_row['MA50']
             
-            # Xác định vùng giá dựa trên Bollinger Bands, RSI và MA50
+            # Xác định vùng giá dựa trên Bollinger Bands, RSI, và MA50
             if recent_signal['type'] == "MUA":
-                # Vùng giá mua:
-                # - Sử dụng Bollinger Band Lower làm giới hạn dưới.
-                # - Giá MA50 làm tham chiếu nếu MA50 < BB_Middle.
-                # - RSI < 30 được xem là vùng mua hấp dẫn.
-                if rsi < 30:
+                # Vùng giá mua dựa trên điều kiện tín hiệu mua:
+                if last_row['close'] > last_row['MA50'] and last_row['MACD'] > last_row['Signal'] and rsi < 30:
+                    # RSI thấp (<30) là vùng mua hấp dẫn, giá giới hạn giữa BB Lower và MA50
                     buy_zone_lower = bb_lower
-                    buy_zone_upper = min(ma50, bb_middle)  # Giới hạn trên là giá trị nhỏ hơn giữa MA50 và BB_Middle
+                    buy_zone_upper = min(ma50, bb_middle)  # Lấy giá trị nhỏ hơn giữa MA50 và BB Middle
+                elif last_row['close'] <= last_row['BB_Lower']:
+                    # Nếu giá chạm BB Lower, lấy vùng giá từ BB Lower đến MA50
+                    buy_zone_lower = bb_lower
+                    buy_zone_upper = ma50
                 else:
+                    # Điều kiện mặc định nếu không khớp các trường hợp trên
                     buy_zone_lower = bb_lower
                     buy_zone_upper = bb_middle
 
                 trade_zone = f"Vùng giá mua: {buy_zone_lower:.2f} - {buy_zone_upper:.2f} {quote_currency}"
-            else:
-                # Vùng giá bán:
-                # - Sử dụng Bollinger Band Upper làm giới hạn trên.
-                # - Giá MA50 làm tham chiếu nếu MA50 > BB_Middle.
-                # - RSI > 70 được xem là vùng bán.
-                if rsi > 70:
-                    sell_zone_lower = max(ma50, bb_middle)  # Giới hạn dưới là giá trị lớn hơn giữa MA50 và BB_Middle
+
+            else:  # recent_signal['type'] == "BÁN"
+                # Vùng giá bán dựa trên điều kiện tín hiệu bán:
+                if last_row['close'] < last_row['MA50'] and last_row['MACD'] < last_row['Signal'] and rsi > 70:
+                    # RSI cao (>70) là vùng bán, giá giới hạn giữa BB Upper và MA50
+                    sell_zone_lower = max(ma50, bb_middle)  # Lấy giá trị lớn hơn giữa MA50 và BB Middle
+                    sell_zone_upper = bb_upper
+                elif last_row['close'] >= last_row['BB_Upper']:
+                    # Nếu giá chạm BB Upper, lấy vùng giá từ MA50 đến BB Upper
+                    sell_zone_lower = ma50
                     sell_zone_upper = bb_upper
                 else:
+                    # Điều kiện mặc định nếu không khớp các trường hợp trên
                     sell_zone_lower = bb_middle
                     sell_zone_upper = bb_upper
 
                 trade_zone = f"Vùng giá bán: {sell_zone_lower:.2f} - {sell_zone_upper:.2f} {quote_currency}"
+
            
             position_info = (
                 f"- Xu hướng: **{trend}**\n"
