@@ -703,7 +703,7 @@ async def signal(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 # Hàm xử lý lệnh /portfolio
 async def portfolio_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     chat_id = update.message.chat_id
-    portfolio_url = f"http://localhost:5000/portfolio/{chat_id}"  # URL web Flask của bạn
+    portfolio_url = f"https://portfoliomanager-enrn.onrender.com"  # URL web Flask của bạn
     await update.message.reply_text(
         f"Click vào liên kết để quản lý danh mục đầu tư của bạn: {portfolio_url}"
     )
