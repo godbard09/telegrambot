@@ -32,49 +32,11 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         "Gõ /smarttrade <mã giao dịch> để xem khuyến nghị tự động.\n"
         "Gõ /list để xem top 10 cặp giao dịch có tín hiệu mua và bán gần đây.\n"
         "Gõ /portfolio để quản lý danh mục đầu tư của bạn.\n"
-        "Gõ /subscribe để đăng ký nhận thông báo tự động.\n"
-        "Gõ /unsubscribe để hủy đăng ký nhận thông báo."
     )
 
 
-
-# File lưu danh sách subscribers
-SUBSCRIBERS_FILE = "subscribers.json"
-
-def load_subscribers():
-    if os.path.exists(SUBSCRIBERS_FILE):
-        with open(SUBSCRIBERS_FILE, "r") as f:
-            return json.load(f)
-    return []
-
-def save_subscribers(subscribers):
-    with open(SUBSCRIBERS_FILE, "w") as f:
-        json.dump(subscribers, f)
-
-subscribers = load_subscribers()
-
 # Khởi tạo múi giờ Việt Nam
 vietnam_tz = pytz.timezone('Asia/Ho_Chi_Minh')
-
-async def subscribe(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Đăng ký nhận thông báo tự động."""
-    chat_id = update.message.chat_id
-    if chat_id not in subscribers:
-        subscribers.append(chat_id)
-        save_subscribers(subscribers)
-        await update.message.reply_text("Bạn đã đăng ký nhận thông báo tự động!")
-    else:
-        await update.message.reply_text("Bạn đã đăng ký trước đó rồi.")
-
-async def unsubscribe(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Huỷ đăng ký nhận thông báo tự động."""
-    chat_id = update.message.chat_id
-    if chat_id in subscribers:
-        subscribers.remove(chat_id)
-        save_subscribers(subscribers)
-        await update.message.reply_text("Bạn đã huỷ đăng ký nhận thông báo.")
-    else:
-        await update.message.reply_text("Bạn chưa đăng ký trước đó.")
 
 
 def escape_markdown(text: str, ignore: list = None) -> str:
@@ -708,73 +670,6 @@ async def portfolio_command(update: Update, context: ContextTypes.DEFAULT_TYPE) 
         f"Click vào liên kết để quản lý danh mục đầu tư của bạn: {portfolio_url}"
     )
 
-async def monitor_signals(context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Theo dõi tín hiệu và tự động gửi thông báo đến subscribers."""
-    try:
-        markets = exchange.load_markets()
-        symbols = list(markets.keys())  # Danh sách mã giao dịch theo dõi
-        timeframe = '1h'
-        limit = 200
-
-        for symbol in symbols:
-            markets = exchange.load_markets()
-            if symbol not in markets:
-                continue
-
-            # Lấy dữ liệu từ KuCoin
-            ohlcv = exchange.fetch_ohlcv(symbol, timeframe, limit=limit)
-            df = pd.DataFrame(ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
-            df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
-
-            # Tính toán các chỉ báo kỹ thuật
-            df['MA50'] = df['close'].rolling(window=50).mean()
-            df['EMA12'] = df['close'].ewm(span=12).mean()
-            df['EMA26'] = df['close'].ewm(span=26).mean()
-            df['MACD'] = df['EMA12'] - df['EMA26']
-            df['Signal'] = df['MACD'].ewm(span=9).mean()
-            delta = df['close'].diff()
-            gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
-            loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
-            rs = gain / loss
-            df['RSI'] = 100 - (100 / (1 + rs))
-            df['BB_Middle'] = df['close'].rolling(window=20).mean()
-            df['BB_Upper'] = df['BB_Middle'] + 2 * df['close'].rolling(window=20).std()
-            df['BB_Lower'] = df['BB_Middle'] - 2 * df['close'].rolling(window=20).std()
-
-            # Phát hiện tín hiệu mua bán
-            last_row = df.iloc[-1]
-            signals = []
-
-            # Thời điểm và giá hiện tại
-            current_time = last_row['timestamp'].strftime('%Y-%m-%d %H:%M:%S')
-            current_price = last_row['close']
-
-            # Tín hiệu mua
-            if last_row['close'] > last_row['MA50'] and last_row['MACD'] > last_row['Signal'] and last_row['RSI'] < 30:
-                signals.append(f"Mua: Giá {current_price:.2f} USD tại {current_time}. Lý do: Cắt MA50, MACD tăng và RSI dưới 30.")
-            elif last_row['close'] <= last_row['BB_Lower']:
-                signals.append(f"Mua: Giá {current_price:.2f} USD tại {current_time}. Lý do: Gần dải BB dưới (quá bán).")
-
-            # Tín hiệu bán
-            if last_row['close'] < last_row['MA50'] and last_row['MACD'] < last_row['Signal'] and last_row['RSI'] > 70:
-                signals.append(f"Bán: Giá {current_price:.2f} USD tại {current_time}. Lý do: Cắt MA50, MACD giảm và RSI trên 70.")
-            elif last_row['close'] >= last_row['BB_Upper']:
-                signals.append(f"Bán: Giá {current_price:.2f} USD tại {current_time}. Lý do: Gần dải BB trên (quá mua).")
-
-            # Gửi tín hiệu cho tất cả subscribers
-            if signals:
-                signal_message = f"Tín hiệu tự động cho {symbol}:\n" + "\n".join(signals)
-                for chat_id in subscribers:
-                    await context.bot.send_message(chat_id=chat_id, text=signal_message)
-    except Exception as e:
-        print(f"Error in monitor_signals: {e}")
-
-
-
-async def start_monitoring(application: Application):
-    """Khởi tạo job để theo dõi tín hiệu giao dịch."""
-    job_queue = application.job_queue
-    job_queue.run_repeating(monitor_signals, interval=300, first=10)  # Chạy mỗi 5 phút
 
 async def set_webhook(application: Application):
     """Thiết lập Webhook."""
