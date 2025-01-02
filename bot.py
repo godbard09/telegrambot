@@ -662,14 +662,6 @@ async def signal(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await update.message.reply_text(f"Đã xảy ra lỗi: {e}")
 
 
-# Hàm xử lý lệnh /portfolio
-async def portfolio_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    chat_id = update.message.chat_id
-    portfolio_url = f"https://portfoliomanager-enrn.onrender.com/portfolio"  # URL web Flask của bạn
-    await update.message.reply_text(
-        f"Click vào liên kết để quản lý danh mục đầu tư của bạn: {portfolio_url}"
-    )
-
 
 async def set_webhook(application: Application):
     """Thiết lập Webhook."""
@@ -685,14 +677,11 @@ def main():
 
     # Đăng ký các handler
     application.add_handler(CommandHandler("start", start))
-    application.add_handler(CommandHandler("subscribe", subscribe))
-    application.add_handler(CommandHandler("unsubscribe", unsubscribe))
     application.add_handler(CommandHandler("chart", chart))
     application.add_handler(CommandHandler("signal", signal))
     application.add_handler(CommandHandler("top", top))  # Thêm handler cho /top
     application.add_handler(CommandHandler("list", list_signals))
     application.add_handler(CommandHandler("smarttrade", current_price))  # Thêm handler cho /cap
-    application.add_handler(CommandHandler("portfolio", portfolio_command))
     application.add_handler(CallbackQueryHandler(button))  # Thêm handler cho nút bấm từ /top
 
     # Chạy webhook
