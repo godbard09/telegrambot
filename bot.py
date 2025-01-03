@@ -28,9 +28,9 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         "Dưới đây là các lệnh bạn có thể sử dụng:\n"
         "Gõ /chart <mã giao dịch> để xem biểu đồ kỹ thuật (ví dụ: /chart BTC/USDT).\n"
         "Gõ /top để xem top 10 cặp giao dịch tăng, giảm mạnh nhất 24 giờ qua.\n"
-        "Gõ /signal <mã giao dịch> để nhận tín hiệu mua bán và lưu lịch sử.\n"
-        "Gõ /smarttrade <mã giao dịch> để xem khuyến nghị tự động.\n"
-        "Gõ /list để xem top 10 cặp giao dịch có tín hiệu mua và bán gần đây."
+        "Gõ /signal <mã giao dịch> để xem lịch sử tín hiệu mua bán trong 7 ngày qua.\n"
+        "Gõ /smarttrade <mã giao dịch> để xem thông tin và tín hiệu mua bán mới nhát.\n"
+        "Gõ /list để xem top 10 cặp giao dịch có tín hiệu mua bán gần đây."
     )
 
 
