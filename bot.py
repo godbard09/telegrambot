@@ -227,10 +227,12 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     except Exception as e:
         await update.message.reply_text(f"Đã xảy ra lỗi: {e}")
 
-def format_price(price):
-    if price < 0.001:
-        return f"{price:.8f}"
-    return f"{price:.2f}"
+        # Helper function to format price
+        def format_price(price):
+            if price < 0.001:
+                return f"{price:.8f}"
+            return f"{price:.2f}"
+
 
 async def chart(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Tạo và gửi biểu đồ kỹ thuật."""
