@@ -527,7 +527,11 @@ async def list_signals(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
                 # Lấy tín hiệu gần nhất
                 last_row = df.iloc[-1]
                 current_time = last_row['timestamp'].strftime('%Y-%m-%d %H:%M:%S')
-                current_price = last_row['close']
+
+                def format_price(price):
+                    return f"{price:.8f}" if price < 1 else f"{price:.2f}"
+
+                current_price = format_price(last_row['close'])
 
                 # Lấy đơn vị giá từ cặp giao dịch
                 quote_currency = symbol.split('/')[1] if '/' in symbol else 'USD'
@@ -554,13 +558,13 @@ async def list_signals(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
         # Tạo danh sách nút tương tác cho tín hiệu mua
         buy_keyboard = [
-            [InlineKeyboardButton(f"{symbol}: Mua ({price:.2f} {unit})", callback_data=symbol)]
+            [InlineKeyboardButton(f"{symbol}: Mua ({price} {unit})", callback_data=symbol)]
             for symbol, price, _, unit in top_buy_signals
         ]
 
         # Tạo danh sách nút tương tác cho tín hiệu bán
         sell_keyboard = [
-            [InlineKeyboardButton(f"{symbol}: Bán ({price:.2f} {unit})", callback_data=symbol)]
+            [InlineKeyboardButton(f"{symbol}: Bán ({price} {unit})", callback_data=symbol)]
             for symbol, price, _, unit in top_sell_signals
         ]
 
@@ -584,7 +588,6 @@ async def list_signals(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
     except Exception as e:
         await update.message.reply_text(f"Đã xảy ra lỗi: {e}")
-
 
 async def signal(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Phân tích và gửi tín hiệu mua bán."""
