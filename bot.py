@@ -126,6 +126,8 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         recent_signal = None
         max_signal_timestamp = None
         now = pd.Timestamp.now(tz=vietnam_tz)
+
+        # Đồng bộ logic phát hiện tín hiệu với hàm /signal
         for _, row in df.iterrows():
             if row['timestamp'] < (now - pd.Timedelta(days=7)):
                 continue
@@ -138,7 +140,24 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
                         "timestamp": row['timestamp'].strftime('%Y-%m-%d %H:%M:%S')
                     }
 
+            elif row['close'] <= row['BB_Lower']:
+                if max_buy_timestamp is None or row['timestamp'] > max_buy_timestamp:
+                    max_buy_timestamp = row['timestamp']
+                    recent_buy_signal = {
+                        "price": row['close'],
+                        "timestamp": row['timestamp'].strftime('%Y-%m-%d %H:%M:%S')
+                    }
+
             if row['close'] < row['MA50'] and row['MACD'] < row['Signal'] and row['RSI'] > 70:
+                if max_signal_timestamp is None or row['timestamp'] > max_signal_timestamp:
+                    max_signal_timestamp = row['timestamp']
+                    recent_signal = {
+                        "type": "BÁN",
+                        "price": row['close'],
+                        "timestamp": row['timestamp'].strftime('%Y-%m-%d %H:%M:%S')
+                    }
+
+            elif row['close'] >= row['BB_Upper']:
                 if max_signal_timestamp is None or row['timestamp'] > max_signal_timestamp:
                     max_signal_timestamp = row['timestamp']
                     recent_signal = {
@@ -197,6 +216,7 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
     except Exception as e:
         await update.message.reply_text(f"Đã xảy ra lỗi: {e}")
+
 
 
 
