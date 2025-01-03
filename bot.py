@@ -181,9 +181,9 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
                             f"- Xu hướng: **{trend}**\n"
                             f"- Vị thế hiện tại: **BÁN**\n"
                             f"- Ngày mua: {buy_time}\n"
-                            f"- Giá mua: {buy_price:.8f} {quote_currency}\n" if buy_price < 0.001 else f"- Giá mua: {buy_price:.2f} {quote_currency}\n"
+                            f"- Giá mua: {buy_price:.2f} {quote_currency}\n"
                             f"- Ngày bán: {sell_time}\n"
-                            f"- Giá bán: {sell_price:.8f} {quote_currency}\n" if sell_price < 0.001 else f"- Giá bán: {sell_price:.2f} {quote_currency}\n"
+                            f"- Giá bán: {sell_price:.2f} {quote_currency}\n"
                             f"- Lãi/Lỗ: {profit_color}"
                         )
                     else:  # Không có tín hiệu mua trước đó
@@ -193,7 +193,7 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
                             f"- Xu hướng: **{trend}**\n"
                             f"- Vị thế hiện tại: **BÁN**\n"
                             f"- Ngày bán: {sell_time}\n"
-                            f"- Giá bán: {sell_price:.8f} {quote_currency}\n" if sell_price < 0.001 else f"- Giá bán: {sell_price:.2f} {quote_currency}\n"
+                            f"- Giá bán: {sell_price:.2f} {quote_currency}\n"
                             f"- Lãi/Lỗ: Không xác định (không có tín hiệu mua trước đó)."
                         )
             elif recent_buy_signal:  # Nếu chỉ có tín hiệu mua
@@ -209,7 +209,7 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
                     f"- Xu hướng: **{trend}**\n"
                     f"- Vị thế hiện tại: **MUA**\n"
                     f"- Ngày mua: {buy_time}\n"
-                    f"- Giá mua: {buy_price:.8f} {quote_currency}\n" if buy_price < 0.001 else f"- Giá mua: {buy_price:.2f} {quote_currency}\n"
+                    f"- Giá mua: {buy_price:.2f} {quote_currency}\n"
                     f"- Lãi/Lỗ: {profit_color}"
                 )
 
