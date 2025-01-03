@@ -165,46 +165,43 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
         position_info = "Không có tín hiệu mua/bán trong 7 ngày qua."
         if recent_signal:
-            if recent_signal['type'] == 'BÁN':
-                if recent_buy_signal:  # Nếu có tín hiệu mua trước đó
-                    buy_price = recent_buy_signal['price']
-                    buy_time = recent_buy_signal['timestamp']
-                    sell_price = recent_signal['price']
-                    sell_time = recent_signal['timestamp']
+            sell_price = recent_signal['price']
+            sell_time = recent_signal['timestamp']
 
-                    # Format prices dynamically
-                    buy_price_display = "Không khả dụng" if buy_price == 0 else f"{buy_price:.8f}" if buy_price < 0.001 else f"{buy_price:.2f}"
-                    sell_price_display = "Không khả dụng" if sell_price == 0 else f"{sell_price:.8f}" if sell_price < 0.001 else f"{sell_price:.2f}"
+            if recent_buy_signal:  # Nếu có tín hiệu mua trước đó
+                buy_price = recent_buy_signal['price']
+                buy_time = recent_buy_signal['timestamp']
 
-                    profit_loss = ((sell_price - buy_price) / buy_price) * 100 if buy_price != 0 else 0
-                    profit_color = (
-                        f"{profit_loss:.2f}% 🟢" if profit_loss > 0 else
-                        f"{profit_loss:.2f}% 🔴" if profit_loss < 0 else
-                        f"{profit_loss:.2f}% 🟡"
-                    )
+                # Format prices dynamically
+                buy_price_display = "Không khả dụng" if buy_price == 0 else f"{buy_price:.8f}" if buy_price < 0.001 else f"{buy_price:.2f}"
+                sell_price_display = "Không khả dụng" if sell_price == 0 else f"{sell_price:.8f}" if sell_price < 0.001 else f"{sell_price:.2f}"
 
-                    position_info = (
-                        f"- Xu hướng: **{trend}**\n"
-                        f"- Vị thế hiện tại: **BÁN**\n"
-                        f"- Ngày mua: {buy_time}\n"
-                        f"- Giá mua: {buy_price_display} {quote_currency}\n"
-                        f"- Ngày bán: {sell_time}\n"
-                        f"- Giá bán: {sell_price_display} {quote_currency}\n"
-                        f"- Lãi/Lỗ: {profit_color}"
-                    )
-                else:  # Không có tín hiệu mua trước đó
-                    sell_price = recent_signal['price']
-                    sell_time = recent_signal['timestamp']
+                profit_loss = ((sell_price - buy_price) / buy_price) * 100 if buy_price != 0 else 0
+                profit_color = (
+                    f"{profit_loss:.2f}% 🟢" if profit_loss > 0 else
+                    f"{profit_loss:.2f}% 🔴" if profit_loss < 0 else
+                    f"{profit_loss:.2f}% 🟡"
+                )
 
-                    sell_price_display = "Không khả dụng" if sell_price == 0 else f"{sell_price:.8f}" if sell_price < 0.001 else f"{sell_price:.2f}"
+                position_info = (
+                    f"- Xu hướng: **{trend}**\n"
+                    f"- Vị thế hiện tại: **BÁN**\n"
+                    f"- Ngày mua: {buy_time}\n"
+                    f"- Giá mua: {buy_price_display} {quote_currency}\n"
+                    f"- Ngày bán: {sell_time}\n"
+                    f"- Giá bán: {sell_price_display} {quote_currency}\n"
+                    f"- Lãi/Lỗ: {profit_color}"
+                )
+            else:  # Không có tín hiệu mua trước đó
+                sell_price_display = "Không khả dụng" if sell_price == 0 else f"{sell_price:.8f}" if sell_price < 0.001 else f"{sell_price:.2f}"
 
-                    position_info = (
-                        f"- Xu hướng: **{trend}**\n"
-                        f"- Vị thế hiện tại: **BÁN**\n"
-                        f"- Ngày bán: {sell_time}\n"
-                        f"- Giá bán: {sell_price_display} {quote_currency}\n"
-                        f"- Lãi/Lỗ: Không xác định (không có tín hiệu mua trước đó)."
-                    )
+                position_info = (
+                    f"- Xu hướng: **{trend}**\n"
+                    f"- Vị thế hiện tại: **BÁN**\n"
+                    f"- Ngày bán: {sell_time}\n"
+                    f"- Giá bán: {sell_price_display} {quote_currency}\n"
+                    f"- Lãi/Lỗ: Không xác định (không có tín hiệu mua trước đó)."
+                )
         elif recent_buy_signal:  # Nếu chỉ có tín hiệu mua
             buy_price = recent_buy_signal['price']
             buy_time = recent_buy_signal['timestamp']
