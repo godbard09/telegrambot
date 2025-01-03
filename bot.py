@@ -91,6 +91,7 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         )
 
         df['MA50'] = df['close'].rolling(window=50).mean()
+        df['MA100'] = df['close'].rolling(window=100).mean()
         df['EMA12'] = df['close'].ewm(span=12).mean()
         df['EMA26'] = df['close'].ewm(span=26).mean()
         df['MACD'] = df['EMA12'] - df['EMA26']
