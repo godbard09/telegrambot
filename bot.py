@@ -163,9 +163,6 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
                         "timestamp": row['timestamp'].strftime('%Y-%m-%d %H:%M:%S')
                     }
 
-        def format_price(price):
-            return f"{price:.8f}" if price < 0.001 else f"{price:.2f}"
-
         position_info = "Không có tín hiệu mua/bán trong 7 ngày qua."
         if recent_signal:
             if recent_signal['type'] == 'BÁN':
@@ -229,7 +226,6 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
     except Exception as e:
         await update.message.reply_text(f"Đã xảy ra lỗi: {e}")
-
 
 
 async def chart(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
