@@ -566,13 +566,19 @@ async def list_signals(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
         # Tạo danh sách nút tương tác cho tín hiệu mua
         buy_keyboard = [
-            [InlineKeyboardButton(f"{symbol}: Mua ({price:.2f} {unit})", callback_data=symbol)]
+            [InlineKeyboardButton(
+                f"{symbol}: Mua ({price:.8f} {unit})" if price < 0.001 else f"{symbol}: Mua ({price:.2f} {unit})",
+                callback_data=symbol
+            )]
             for symbol, price, _, unit in top_buy_signals
         ]
 
         # Tạo danh sách nút tương tác cho tín hiệu bán
         sell_keyboard = [
-            [InlineKeyboardButton(f"{symbol}: Bán ({price:.2f} {unit})", callback_data=symbol)]
+            [InlineKeyboardButton(
+                f"{symbol}: Bán ({price:.8f} {unit})" if price < 0.001 else f"{symbol}: Bán ({price:.2f} {unit})",
+                callback_data=symbol
+            )]
             for symbol, price, _, unit in top_sell_signals
         ]
 
