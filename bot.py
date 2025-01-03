@@ -653,6 +653,12 @@ async def signal(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         df['BB_Upper'] = df['BB_Middle'] + 2 * df['close'].rolling(window=20).std()
         df['BB_Lower'] = df['BB_Middle'] - df['close'].rolling(window=20).std()
 
+        # Helper function to format price
+        def format_price(price):
+            if price < 0.001:
+                return f"{price:.8f}"
+            return f"{price:.2f}"
+
         # Phát hiện tín hiệu mua bán hiện tại
         last_row = df.iloc[-1]  # Lấy dòng dữ liệu cuối cùng
         signals_now = []
@@ -667,24 +673,24 @@ async def signal(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             last_buy_price = last_row['close']
             profit_loss = ((current_price - last_row['close']) / last_row['close']) * 100
             profit_icon = "\U0001F7E2" if profit_loss >= 0 else "\U0001F534"
-            signals_now.append(f"\U0001F7E2 Mua: Giá {last_row['close']:.2f} {unit} vào lúc {current_time}. {profit_icon} Lãi/Lỗ: {profit_loss:.2f}%")
+            signals_now.append(f"\U0001F7E2 Mua: Giá {format_price(last_row['close'])} {unit} vào lúc {current_time}. {profit_icon} Lãi/Lỗ: {profit_loss:.2f}%")
         elif last_row['close'] <= last_row['BB_Lower']:
             last_buy_price = last_row['close']
             profit_loss = ((current_price - last_row['close']) / last_row['close']) * 100
             profit_icon = "\U0001F7E2" if profit_loss >= 0 else "\U0001F534"
-            signals_now.append(f"\U0001F7E2 Mua: Giá {last_row['close']:.2f} {unit} vào lúc {current_time}. {profit_icon} Lãi/Lỗ: {profit_loss:.2f}%")
+            signals_now.append(f"\U0001F7E2 Mua: Giá {format_price(last_row['close'])} {unit} vào lúc {current_time}. {profit_icon} Lãi/Lỗ: {profit_loss:.2f}%")
 
         # Tín hiệu bán
         if last_row['close'] < last_row['MA50'] and last_row['MACD'] < last_row['Signal'] and last_row['RSI'] > 70:
             if last_buy_price:
                 profit_loss = ((last_row['close'] - last_buy_price) / last_buy_price) * 100
                 profit_icon = "\U0001F7E2" if profit_loss >= 0 else "\U0001F534"
-                signals_now.append(f"\U0001F534 Bán: Giá {current_price:.2f} {unit} vào lúc {current_time}. {profit_icon} Lãi/Lỗ: {profit_loss:.2f}%")
+                signals_now.append(f"\U0001F534 Bán: Giá {format_price(current_price)} {unit} vào lúc {current_time}. {profit_icon} Lãi/Lỗ: {profit_loss:.2f}%")
         elif last_row['close'] >= last_row['BB_Upper']:
             if last_buy_price:
                 profit_loss = ((last_row['close'] - last_buy_price) / last_buy_price) * 100
                 profit_icon = "\U0001F7E2" if profit_loss >= 0 else "\U0001F534"
-                signals_now.append(f"\U0001F534 Bán: Giá {current_price:.2f} {unit} vào lúc {current_time}. {profit_icon} Lãi/Lỗ: {profit_loss:.2f}%")
+                signals_now.append(f"\U0001F534 Bán: Giá {format_price(current_price)} {unit} vào lúc {current_time}. {profit_icon} Lãi/Lỗ: {profit_loss:.2f}%")
 
         # Phát hiện tín hiệu mua bán trong 7 ngày qua
         signals_past = []
@@ -698,24 +704,24 @@ async def signal(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 last_buy_price = row['close']
                 profit_loss = ((current_price - row['close']) / row['close']) * 100
                 profit_icon = "\U0001F7E2" if profit_loss >= 0 else "\U0001F534"
-                signals_past.append(f"\U0001F7E2 Mua: Giá {row['close']:.2f} {unit} vào lúc {row['timestamp'].strftime('%Y-%m-%d %H:%M:%S')}. {profit_icon} Lãi/Lỗ: {profit_loss:.2f}%")
+                signals_past.append(f"\U0001F7E2 Mua: Giá {format_price(row['close'])} {unit} vào lúc {row['timestamp'].strftime('%Y-%m-%d %H:%M:%S')}. {profit_icon} Lãi/Lỗ: {profit_loss:.2f}%")
             elif row['close'] <= row['BB_Lower']:
                 last_buy_price = row['close']
                 profit_loss = ((current_price - row['close']) / row['close']) * 100
                 profit_icon = "\U0001F7E2" if profit_loss >= 0 else "\U0001F534"
-                signals_past.append(f"\U0001F7E2 Mua: Giá {row['close']:.2f} {unit} vào lúc {row['timestamp'].strftime('%Y-%m-%d %H:%M:%S')}. {profit_icon} Lãi/Lỗ: {profit_loss:.2f}%")
+                signals_past.append(f"\U0001F7E2 Mua: Giá {format_price(row['close'])} {unit} vào lúc {row['timestamp'].strftime('%Y-%m-%d %H:%M:%S')}. {profit_icon} Lãi/Lỗ: {profit_loss:.2f}%")
 
             # Tín hiệu bán trong 7 ngày qua
             if row['close'] < row['MA50'] and row['MACD'] < row['Signal'] and row['RSI'] > 70:
                 if last_buy_price:
                     profit_loss = ((row['close'] - last_buy_price) / last_buy_price) * 100
                     profit_icon = "\U0001F7E2" if profit_loss >= 0 else "\U0001F534"
-                    signals_past.append(f"\U0001F534 Bán: Giá {row['close']:.2f} {unit} vào lúc {row['timestamp'].strftime('%Y-%m-%d %H:%M:%S')}. {profit_icon} Lãi/Lỗ: {profit_loss:.2f}%")
+                    signals_past.append(f"\U0001F534 Bán: Giá {format_price(row['close'])} {unit} vào lúc {row['timestamp'].strftime('%Y-%m-%d %H:%M:%S')}. {profit_icon} Lãi/Lỗ: {profit_loss:.2f}%")
             elif row['close'] >= row['BB_Upper']:
                 if last_buy_price:
                     profit_loss = ((row['close'] - last_buy_price) / last_buy_price) * 100
                     profit_icon = "\U0001F7E2" if profit_loss >= 0 else "\U0001F534"
-                    signals_past.append(f"\U0001F534 Bán: Giá {row['close']:.2f} {unit} vào lúc {row['timestamp'].strftime('%Y-%m-%d %H:%M:%S')}. {profit_icon} Lãi/Lỗ: {profit_loss:.2f}%")
+                    signals_past.append(f"\U0001F534 Bán: Giá {format_price(row['close'])} {unit} vào lúc {row['timestamp'].strftime('%Y-%m-%d %H:%M:%S')}. {profit_icon} Lãi/Lỗ: {profit_loss:.2f}%")
 
         # Gửi tín hiệu qua Telegram
         signal_message = f"Tín hiệu giao dịch cho {symbol}:"
@@ -733,9 +739,6 @@ async def signal(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     except Exception as e:
         await update.message.reply_text(f"Đã xảy ra lỗi: {e}")
-
-
-
 
 
 async def set_webhook(application: Application):
