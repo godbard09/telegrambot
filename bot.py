@@ -167,8 +167,8 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
                     }
 
         position_info = "Không có tín hiệu mua/bán trong 7 ngày qua."
-        if recent_signal:
-            if recent_signal['type'] == 'BÁN' and recent_buy_signal:
+        if recent_signal or recent_buy_signal:
+            if recent_signal and recent_signal['type'] == 'BÁN' and recent_buy_signal:
                 buy_price = recent_buy_signal['price']
                 buy_time = recent_buy_signal['timestamp']
                 sell_price = recent_signal['price']
@@ -188,8 +188,10 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
                     f"- Giá bán: {sell_price:.2f} {quote_currency}\n"
                     f"- Lãi/Lỗ: {profit_color}"
                 )
-            elif recent_signal['type'] == 'MUA':
-                profit_loss = ((current_price - recent_signal['price']) / recent_signal['price']) * 100
+            elif recent_buy_signal:
+                buy_price = recent_buy_signal['price']
+                buy_time = recent_buy_signal['timestamp']
+                profit_loss = ((current_price - buy_price) / buy_price) * 100
                 profit_color = (
                     f"{profit_loss:.2f}% 🟢" if profit_loss > 0 else
                     f"{profit_loss:.2f}% 🔴" if profit_loss < 0 else
@@ -198,8 +200,8 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
                 position_info = (
                     f"- Xu hướng: **{trend}**\n"
                     f"- Vị thế hiện tại: **MUA**\n"
-                    f"- Ngày mua: {recent_signal['timestamp']}\n"
-                    f"- Giá mua: {recent_signal['price']:.2f} {quote_currency}\n"
+                    f"- Ngày mua: {buy_time}\n"
+                    f"- Giá mua: {buy_price:.2f} {quote_currency}\n"
                     f"- Lãi/Lỗ: {profit_color}"
                 )
 
@@ -216,7 +218,6 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
     except Exception as e:
         await update.message.reply_text(f"Đã xảy ra lỗi: {e}")
-
 
 
 
