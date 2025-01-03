@@ -90,7 +90,6 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
             .dt.tz_convert(vietnam_tz)
         )
 
-        # Kiểm tra xem DataFrame có đủ dòng để tính toán chỉ báo kỹ thuật không
         if len(df) < 100:
             await update.message.reply_text("Không đủ dữ liệu để tính toán chỉ báo kỹ thuật. Vui lòng thử lại sau.")
             return
@@ -127,7 +126,6 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         max_signal_timestamp = None
         now = pd.Timestamp.now(tz=vietnam_tz)
 
-        # Đồng bộ logic phát hiện tín hiệu với hàm /signal
         for _, row in df.iterrows():
             if row['timestamp'] < (now - pd.Timedelta(days=7)):
                 continue
@@ -218,6 +216,7 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
     except Exception as e:
         await update.message.reply_text(f"Đã xảy ra lỗi: {e}")
+
 
 
 
