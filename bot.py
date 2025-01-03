@@ -54,7 +54,7 @@ def escape_markdown(text: str, ignore: list = None) -> str:
     return re.sub(f"([{re.escape(escape_chars)}])", r"\\\1", text)
 
 
-    async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         try:
             symbol = context.args[0] if context.args else None
             if not symbol:
