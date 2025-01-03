@@ -174,21 +174,30 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
                     buy_time = recent_buy_signal['timestamp']
                     sell_price = recent_signal['price']
                     sell_time = recent_signal['timestamp']
-                    profit_loss = ((sell_price - buy_price) / buy_price) * 100
-                    profit_color = (
-                        f"{profit_loss:.2f}% 🟢" if profit_loss > 0 else
-                        f"{profit_loss:.2f}% 🔴" if profit_loss < 0 else
-                        f"{profit_loss:.2f}% 🟡"
-                    )
-                    position_info = (
-                        f"- Xu hướng: **{trend}**\n"
-                        f"- Vị thế hiện tại: **BÁN**\n"
-                        f"- Ngày mua: {buy_time}\n"
-                        f"- Giá mua: {format_price(buy_price)} {quote_currency}\n"
-                        f"- Ngày bán: {sell_time}\n"
-                        f"- Giá bán: {format_price(sell_price)} {quote_currency}\n"
-                        f"- Lãi/Lỗ: {profit_color}"
-                    )
+                    if buy_time < sell_time:  # Đảm bảo thời gian mua trước bán
+                        profit_loss = ((sell_price - buy_price) / buy_price) * 100
+                        profit_color = (
+                            f"{profit_loss:.2f}% 🟢" if profit_loss > 0 else
+                            f"{profit_loss:.2f}% 🔴" if profit_loss < 0 else
+                            f"{profit_loss:.2f}% 🟡"
+                        )
+                        position_info = (
+                            f"- Xu hướng: **{trend}**\n"
+                            f"- Vị thế hiện tại: **BÁN**\n"
+                            f"- Ngày mua: {buy_time}\n"
+                            f"- Giá mua: {format_price(buy_price)} {quote_currency}\n"
+                            f"- Ngày bán: {sell_time}\n"
+                            f"- Giá bán: {format_price(sell_price)} {quote_currency}\n"
+                            f"- Lãi/Lỗ: {profit_color}"
+                        )
+                    else:
+                        position_info = (
+                            f"- Xu hướng: **{trend}**\n"
+                            f"- Vị thế hiện tại: **BÁN**\n"
+                            f"- Ngày bán: {sell_time}\n"
+                            f"- Giá bán: {format_price(sell_price)} {quote_currency}\n"
+                            f"- Lãi/Lỗ: Không xác định (thời gian mua không hợp lệ)."
+                        )
                 else:  # Không có tín hiệu mua trước đó
                     sell_price = recent_signal['price']
                     sell_time = recent_signal['timestamp']
@@ -229,7 +238,6 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
     except Exception as e:
         await update.message.reply_text(f"Đã xảy ra lỗi: {e}")
-
 
 
 async def chart(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
