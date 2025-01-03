@@ -174,7 +174,7 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
                     buy_time = recent_buy_signal['timestamp']
                     sell_price = recent_signal['price']
                     sell_time = recent_signal['timestamp']
-                    if buy_time < sell_time:  # Đảm bảo thời gian mua trước bán
+                    if pd.Timestamp(buy_time) < pd.Timestamp(sell_time):  # Đảm bảo thời gian mua trước bán
                         profit_loss = ((sell_price - buy_price) / buy_price) * 100
                         profit_color = (
                             f"{profit_loss:.2f}% 🟢" if profit_loss > 0 else
@@ -238,7 +238,6 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
     except Exception as e:
         await update.message.reply_text(f"Đã xảy ra lỗi: {e}")
-
 
 async def chart(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Tạo và gửi biểu đồ kỹ thuật."""
