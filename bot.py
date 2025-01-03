@@ -544,13 +544,13 @@ async def list_signals(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
         # Tạo danh sách nút tương tác cho tín hiệu mua
         buy_keyboard = [
-            [InlineKeyboardButton(f"{symbol}: Mua ({price:.2f} {unit})", callback_data=symbol)]
+            [InlineKeyboardButton(f"{symbol}: Mua ({price:.8f} {unit})", callback_data=symbol)]
             for symbol, price, _, unit in top_buy_signals
         ]
 
         # Tạo danh sách nút tương tác cho tín hiệu bán
         sell_keyboard = [
-            [InlineKeyboardButton(f"{symbol}: Bán ({price:.2f} {unit})", callback_data=symbol)]
+            [InlineKeyboardButton(f"{symbol}: Bán ({price:.8f} {unit})", callback_data=symbol)]
             for symbol, price, _, unit in top_sell_signals
         ]
 
@@ -705,9 +705,6 @@ async def signal(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     except Exception as e:
         await update.message.reply_text(f"Đã xảy ra lỗi: {e}")
-
-
-
 
 
 async def set_webhook(application: Application):
