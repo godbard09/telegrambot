@@ -173,9 +173,9 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
                         sell_time = recent_signal['timestamp']
                         profit_loss = ((sell_price - buy_price) / buy_price) * 100
                         profit_color = (
-                            f"{profit_loss:.2f}% 🟢" if profit_loss > 0 else
-                            f"{profit_loss:.2f}% 🔴" if profit_loss < 0 else
-                            f"{profit_loss:.2f}% 🟡"
+                            f"{profit_loss:.g}% 🟢" if profit_loss > 0 else
+                            f"{profit_loss:.g}% 🔴" if profit_loss < 0 else
+                            f"{profit_loss:.g}% 🟡"
                         )
                         position_info = (
                             f"- Xu hướng: **{trend}**\n"
@@ -201,9 +201,9 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
                 buy_time = recent_buy_signal['timestamp']
                 profit_loss = ((current_price - buy_price) / buy_price) * 100
                 profit_color = (
-                    f"{profit_loss:.2f}% 🟢" if profit_loss > 0 else
-                    f"{profit_loss:.2f}% 🔴" if profit_loss < 0 else
-                    f"{profit_loss:.2f}% 🟡"
+                    f"{profit_loss:.g}% 🟢" if profit_loss > 0 else
+                    f"{profit_loss:.g}% 🔴" if profit_loss < 0 else
+                    f"{profit_loss:.g}% 🟡"
                 )
                 position_info = (
                     f"- Xu hướng: **{trend}**\n"
@@ -216,8 +216,8 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
             message = escape_markdown(
                 f"Thông tin giá hiện tại cho {symbol}:\n"
                 f"- Giá hiện tại: {current_price:.g} {quote_currency}\n"
-                f"- Biến động trong 24 giờ qua: {percentage_change:.2f}%\n"
-                f"- Khối lượng giao dịch trong 24 giờ qua: {volume_24h:.2f} {quote_currency}\n"
+                f"- Biến động trong 24 giờ qua: {percentage_change:.g}%\n"
+                f"- Khối lượng giao dịch trong 24 giờ qua: {volume_24h:.g} {quote_currency}\n"
                 f"- Thời gian cập nhật: {timestamp}\n\n"
                 f"Thông tin vị thế:\n{position_info}",
                 ignore=["*"]
@@ -440,13 +440,13 @@ async def top(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
         # Tạo danh sách nút tương tác cho top tăng
         gainers_keyboard = [
-            [InlineKeyboardButton(f"{symbol}: +{change:.2f}%", callback_data=symbol)]
+            [InlineKeyboardButton(f"{symbol}: +{change:.g}%", callback_data=symbol)]
             for symbol, change in top_gainers
         ]
 
         # Tạo danh sách nút tương tác cho top giảm
         losers_keyboard = [
-            [InlineKeyboardButton(f"{symbol}: {change:.2f}%", callback_data=symbol)]
+            [InlineKeyboardButton(f"{symbol}: {change:.g}%", callback_data=symbol)]
             for symbol, change in top_losers
         ]
 
@@ -639,24 +639,24 @@ async def signal(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             last_buy_price = last_row['close']
             profit_loss = ((current_price - last_row['close']) / last_row['close']) * 100
             profit_icon = "\U0001F7E2" if profit_loss >= 0 else "\U0001F534"
-            signals_now.append(f"\U0001F7E2 Mua: Giá {last_row['close']:.g} {unit} vào lúc {current_time}. {profit_icon} Lãi/Lỗ: {profit_loss:.2f}%")
+            signals_now.append(f"\U0001F7E2 Mua: Giá {last_row['close']:.g} {unit} vào lúc {current_time}. {profit_icon} Lãi/Lỗ: {profit_loss:.g}%")
         elif last_row['close'] <= last_row['BB_Lower']:
             last_buy_price = last_row['close']
             profit_loss = ((current_price - last_row['close']) / last_row['close']) * 100
             profit_icon = "\U0001F7E2" if profit_loss >= 0 else "\U0001F534"
-            signals_now.append(f"\U0001F7E2 Mua: Giá {last_row['close']:.g} {unit} vào lúc {current_time}. {profit_icon} Lãi/Lỗ: {profit_loss:.2f}%")
+            signals_now.append(f"\U0001F7E2 Mua: Giá {last_row['close']:.g} {unit} vào lúc {current_time}. {profit_icon} Lãi/Lỗ: {profit_loss:.g}%")
 
         # Tín hiệu bán
         if last_row['close'] < last_row['MA50'] and last_row['MACD'] < last_row['Signal'] and last_row['RSI'] > 70:
             if last_buy_price:
                 profit_loss = ((last_row['close'] - last_buy_price) / last_buy_price) * 100
                 profit_icon = "\U0001F7E2" if profit_loss >= 0 else "\U0001F534"
-                signals_now.append(f"\U0001F534 Bán: Giá {current_price:.g} {unit} vào lúc {current_time}. {profit_icon} Lãi/Lỗ: {profit_loss:.2f}%")
+                signals_now.append(f"\U0001F534 Bán: Giá {current_price:.g} {unit} vào lúc {current_time}. {profit_icon} Lãi/Lỗ: {profit_loss:.g}%")
         elif last_row['close'] >= last_row['BB_Upper']:
             if last_buy_price:
                 profit_loss = ((last_row['close'] - last_buy_price) / last_buy_price) * 100
                 profit_icon = "\U0001F7E2" if profit_loss >= 0 else "\U0001F534"
-                signals_now.append(f"\U0001F534 Bán: Giá {current_price:.g} {unit} vào lúc {current_time}. {profit_icon} Lãi/Lỗ: {profit_loss:.2f}%")
+                signals_now.append(f"\U0001F534 Bán: Giá {current_price:.g} {unit} vào lúc {current_time}. {profit_icon} Lãi/Lỗ: {profit_loss:.g}%")
 
         # Phát hiện tín hiệu mua bán trong 7 ngày qua
         signals_past = []
@@ -670,24 +670,24 @@ async def signal(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 last_buy_price = row['close']
                 profit_loss = ((current_price - row['close']) / row['close']) * 100
                 profit_icon = "\U0001F7E2" if profit_loss >= 0 else "\U0001F534"
-                signals_past.append(f"\U0001F7E2 Mua: Giá {row['close']:.g} {unit} vào lúc {row['timestamp'].strftime('%Y-%m-%d %H:%M:%S')}. {profit_icon} Lãi/Lỗ: {profit_loss:.2f}%")
+                signals_past.append(f"\U0001F7E2 Mua: Giá {row['close']:.g} {unit} vào lúc {row['timestamp'].strftime('%Y-%m-%d %H:%M:%S')}. {profit_icon} Lãi/Lỗ: {profit_loss:.g}%")
             elif row['close'] <= row['BB_Lower']:
                 last_buy_price = row['close']
                 profit_loss = ((current_price - row['close']) / row['close']) * 100
                 profit_icon = "\U0001F7E2" if profit_loss >= 0 else "\U0001F534"
-                signals_past.append(f"\U0001F7E2 Mua: Giá {row['close']:.g} {unit} vào lúc {row['timestamp'].strftime('%Y-%m-%d %H:%M:%S')}. {profit_icon} Lãi/Lỗ: {profit_loss:.2f}%")
+                signals_past.append(f"\U0001F7E2 Mua: Giá {row['close']:.g} {unit} vào lúc {row['timestamp'].strftime('%Y-%m-%d %H:%M:%S')}. {profit_icon} Lãi/Lỗ: {profit_loss:.g}%")
 
             # Tín hiệu bán trong 7 ngày qua
             if row['close'] < row['MA50'] and row['MACD'] < row['Signal'] and row['RSI'] > 70:
                 if last_buy_price:
                     profit_loss = ((row['close'] - last_buy_price) / last_buy_price) * 100
                     profit_icon = "\U0001F7E2" if profit_loss >= 0 else "\U0001F534"
-                    signals_past.append(f"\U0001F534 Bán: Giá {row['close']:.g} {unit} vào lúc {row['timestamp'].strftime('%Y-%m-%d %H:%M:%S')}. {profit_icon} Lãi/Lỗ: {profit_loss:.2f}%")
+                    signals_past.append(f"\U0001F534 Bán: Giá {row['close']:.g} {unit} vào lúc {row['timestamp'].strftime('%Y-%m-%d %H:%M:%S')}. {profit_icon} Lãi/Lỗ: {profit_loss:.g}%")
             elif row['close'] >= row['BB_Upper']:
                 if last_buy_price:
                     profit_loss = ((row['close'] - last_buy_price) / last_buy_price) * 100
                     profit_icon = "\U0001F7E2" if profit_loss >= 0 else "\U0001F534"
-                    signals_past.append(f"\U0001F534 Bán: Giá {row['close']:.g} {unit} vào lúc {row['timestamp'].strftime('%Y-%m-%d %H:%M:%S')}. {profit_icon} Lãi/Lỗ: {profit_loss:.2f}%")
+                    signals_past.append(f"\U0001F534 Bán: Giá {row['close']:.g} {unit} vào lúc {row['timestamp'].strftime('%Y-%m-%d %H:%M:%S')}. {profit_icon} Lãi/Lỗ: {profit_loss:.g}%")
 
         # Gửi tín hiệu qua Telegram
         signal_message = f"Tín hiệu giao dịch cho {symbol}:"
