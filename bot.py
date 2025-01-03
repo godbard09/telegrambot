@@ -523,6 +523,11 @@ async def list_signals(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
                 current_time = last_row['timestamp'].strftime('%Y-%m-%d %H:%M:%S')
                 current_price = last_row['close']
 
+                # Kiểm tra giá trị null hoặc không hợp lệ
+                if pd.isna(current_price) or current_price == 0:
+                    print(f"Giá không hợp lệ cho {symbol}. Bỏ qua cặp này.")
+                    continue
+
                 # Lấy đơn vị giá từ cặp giao dịch
                 quote_currency = symbol.split('/')[1] if '/' in symbol else 'USD'
 
@@ -584,6 +589,7 @@ async def list_signals(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
     except Exception as e:
         await update.message.reply_text(f"Đã xảy ra lỗi: {e}")
+
 
 
 async def signal(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
