@@ -164,12 +164,12 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
                     }
 
         def format_price(price):
-            return f"{price:.2f}" if price >= 1 else f"{price:.8f}"
+            return f"{price:.8f}" if price < 1 else f"{price:.2f}"
 
         position_info = "Không có tín hiệu mua/bán trong 7 ngày qua."
         if recent_signal:
             if recent_signal['type'] == 'BÁN':
-                if recent_buy_signal:
+                if recent_buy_signal:  # Nếu có tín hiệu mua trước đó
                     buy_price = recent_buy_signal['price']
                     buy_time = recent_buy_signal['timestamp']
                     sell_price = recent_signal['price']
@@ -189,7 +189,7 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
                         f"- Giá bán: {format_price(sell_price)} {quote_currency}\n"
                         f"- Lãi/Lỗ: {profit_color}"
                     )
-                else:
+                else:  # Không có tín hiệu mua trước đó
                     sell_price = recent_signal['price']
                     sell_time = recent_signal['timestamp']
                     position_info = (
@@ -199,7 +199,7 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
                         f"- Giá bán: {format_price(sell_price)} {quote_currency}\n"
                         f"- Lãi/Lỗ: Không xác định (không có tín hiệu mua trước đó)."
                     )
-        elif recent_buy_signal:
+        elif recent_buy_signal:  # Nếu chỉ có tín hiệu mua
             buy_price = recent_buy_signal['price']
             buy_time = recent_buy_signal['timestamp']
             profit_loss = ((current_price - buy_price) / buy_price) * 100
