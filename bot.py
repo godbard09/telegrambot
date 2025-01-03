@@ -56,6 +56,11 @@ def escape_markdown(text: str, ignore: list = None) -> str:
 
 async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     try:
+        def format_price(price):
+            if price < 0.001:
+                return f"{price:.8f}"
+            return f"{price:.2f}"
+
         symbol = context.args[0] if context.args else None
         if not symbol:
             await update.message.reply_text("Vui lòng cung cấp mã giao dịch. Ví dụ: /smarttrade BTC/USDT")
@@ -166,7 +171,7 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         position_info = "Không có tín hiệu mua/bán trong 7 ngày qua."
         if recent_signal:
             if recent_signal['type'] == 'BÁN':
-                if recent_buy_signal:  # Nếu có tín hiệu mua trước đó
+                if recent_buy_signal:
                     buy_price = recent_buy_signal['price']
                     buy_time = recent_buy_signal['timestamp']
                     sell_price = recent_signal['price']
@@ -186,7 +191,7 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
                         f"- Giá bán: {format_price(sell_price)} {quote_currency}\n"
                         f"- Lãi/Lỗ: {profit_color}"
                     )
-                else:  # Không có tín hiệu mua trước đó
+                else:
                     sell_price = recent_signal['price']
                     sell_time = recent_signal['timestamp']
                     position_info = (
@@ -196,7 +201,7 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
                         f"- Giá bán: {format_price(sell_price)} {quote_currency}\n"
                         f"- Lãi/Lỗ: Không xác định (không có tín hiệu mua trước đó)."
                     )
-        elif recent_buy_signal:  # Nếu chỉ có tín hiệu mua
+        elif recent_buy_signal:
             buy_price = recent_buy_signal['price']
             buy_time = recent_buy_signal['timestamp']
             profit_loss = ((current_price - buy_price) / buy_price) * 100
@@ -226,12 +231,6 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
     except Exception as e:
         await update.message.reply_text(f"Đã xảy ra lỗi: {e}")
-
-        # Helper function to format price
-        def format_price(price):
-            if price < 0.001:
-                return f"{price:.8f}"
-            return f"{price:.2f}"
 
 
 async def chart(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
