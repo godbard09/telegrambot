@@ -222,7 +222,7 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
             f"Thông tin giá hiện tại cho {symbol}:\n"
             f"- Giá hiện tại: {format_price(current_price)} {quote_currency}\n"
             f"- Biến động trong 24 giờ qua: {percentage_change:.2f}%\n"
-            f"- Khối lượng giao dịch trong 24 giờ qua: {volume_24h:.2f} {quote_currency}\n"
+            f"- Khối lượng giao dịch trong 24 giờ qua: {format_price(volume_24h)} {quote_currency}\n"
             f"- Thời gian cập nhật: {timestamp}\n\n"
             f"Thông tin vị thế:\n{position_info}",
             ignore=["*"]
