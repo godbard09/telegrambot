@@ -238,7 +238,7 @@ async def chart(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             return
 
         timeframe = '1h'
-        limit = 200
+        limit = 8760
 
         markets = exchange.load_markets()
         if symbol not in markets:
