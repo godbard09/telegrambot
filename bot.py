@@ -254,17 +254,14 @@ async def chart(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             .dt.tz_convert(vietnam_tz)
         )
 
-
         # Tính toán các chỉ báo kỹ thuật
         df['MA50'] = df['close'].rolling(window=50).mean()
         df['MA100'] = df['close'].rolling(window=100).mean()
 
-
         # Bollinger Bands
         df['BB_Middle'] = df['close'].rolling(window=20).mean()
         df['BB_Upper'] = df['BB_Middle'] + 2 * df['close'].rolling(window=20).std()
-        df['BB_Lower'] = df['BB_Middle'] - df['close'].rolling(window=20).std()
-
+        df['BB_Lower'] = df['BB_Middle'] - 2 * df['close'].rolling(window=20).std()
 
         # MACD
         df['EMA12'] = df['close'].ewm(span=12).mean()
@@ -273,7 +270,6 @@ async def chart(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         df['Signal'] = df['MACD'].ewm(span=9).mean()
         df['MACD_Hist'] = df['MACD'] - df['Signal']
 
-
         # RSI
         delta = df['close'].diff()
         gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
@@ -281,8 +277,7 @@ async def chart(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         rs = gain / loss
         df['RSI'] = 100 - (100 / (1 + rs))
 
-
-       # Biểu đồ Candlestick và MACD được đặt riêng biệt
+        # Biểu đồ Candlestick và MACD được đặt riêng biệt
         fig = make_subplots(
             rows=4,  # Tăng số lượng hàng lên 4 để tách MACD khỏi biểu đồ giá
             cols=1,
@@ -324,6 +319,23 @@ async def chart(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             mode='lines',
             line=dict(color='green', width=1),
             name='BB Lower'
+        ), row=1, col=1, secondary_y=False)
+
+        # Thêm các đường MA50 và MA100
+        fig.add_trace(go.Scatter(
+            x=df['timestamp'],
+            y=df['MA50'],
+            mode='lines',
+            line=dict(color='orange', width=1.5),
+            name='MA50'
+        ), row=1, col=1, secondary_y=False)
+
+        fig.add_trace(go.Scatter(
+            x=df['timestamp'],
+            y=df['MA100'],
+            mode='lines',
+            line=dict(color='purple', width=1.5),
+            name='MA100'
         ), row=1, col=1, secondary_y=False)
 
         # Biểu đồ khối lượng bên trục y2, cùng màu với giá
@@ -395,12 +407,9 @@ async def chart(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             xaxis_rangeslider_visible=False
         )
 
-
-
         # Lưu biểu đồ thành HTML
         temp_file = f"{symbol.replace('/', '_')}_chart.html"
         fig.write_html(temp_file)
-
 
         # Gửi file HTML qua Telegram
         if update.callback_query:
@@ -410,7 +419,6 @@ async def chart(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             with open(temp_file, 'rb') as html_file:
                 await update.message.reply_document(document=html_file, filename=temp_file)
 
-
         # Xóa file tạm
         os.remove(temp_file)
     except Exception as e:
@@ -418,6 +426,7 @@ async def chart(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             await update.callback_query.message.reply_text(f"Đã xảy ra lỗi: {e}")
         else:
             await update.message.reply_text(f"Đã xảy ra lỗi: {e}")
+
 
 
 async def top(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
