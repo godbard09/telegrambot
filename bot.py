@@ -169,7 +169,7 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
                 # Tìm tín hiệu mua gần nhất trước tín hiệu bán
                 buy_before_sell = None
                 for _, row in df[::-1].iterrows():
-                    if row['timestamp'] < pd.to_datetime(recent_signal['timestamp']):
+                    if row['timestamp'] < pd.Timestamp(recent_signal['timestamp']).tz_localize(vietnam_tz):
                         if row['close'] > row['MA50'] and row['MACD'] > row['Signal'] and row['RSI'] < 30:
                             buy_before_sell = {
                                 "price": row['close'],
@@ -237,8 +237,6 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
     except Exception as e:
         await update.message.reply_text(f"Đã xảy ra lỗi: {e}")
-
-
 
 
 async def chart(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
