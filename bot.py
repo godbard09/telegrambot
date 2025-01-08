@@ -120,39 +120,37 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
                 trend = "ĐI NGANG"
 
         recent_buy_signal = None
-        max_buy_timestamp = None
         recent_signal = None
-        max_signal_timestamp = None
         now = pd.Timestamp.now(tz=vietnam_tz)
 
         for _, row in df.iterrows():
-            if row['timestamp'] < (now - pd.Timedelta(days=7)):
-                continue
+            row_timestamp = row['timestamp']
 
-            if row['close'] > row['MA50'] and row['MACD'] > row['Signal'] and row['RSI'] < 30:
-                max_buy_timestamp = row['timestamp']
-                recent_buy_signal = {
-                    "price": row['close'],
-                    "timestamp": row['timestamp'].strftime('%Y-%m-%d %H:%M:%S')
-                }
+            if row_timestamp >= (now - pd.Timedelta(days=7)):
+                if row['close'] > row['MA50'] and row['MACD'] > row['Signal'] and row['RSI'] < 30:
+                    recent_buy_signal = {
+                        "price": row['close'],
+                        "timestamp": row_timestamp.strftime('%Y-%m-%d %H:%M:%S')
+                    }
 
-            if row['close'] < row['MA50'] and row['MACD'] < row['Signal'] and row['RSI'] > 70:
-                max_signal_timestamp = row['timestamp']
-                recent_signal = {
-                    "type": "BÁN",
-                    "price": row['close'],
-                    "timestamp": row['timestamp'].strftime('%Y-%m-%d %H:%M:%S')
-                }
+                if row['close'] < row['MA50'] and row['MACD'] < row['Signal'] and row['RSI'] > 70:
+                    recent_signal = {
+                        "type": "BÁN",
+                        "price": row['close'],
+                        "timestamp": row_timestamp.strftime('%Y-%m-%d %H:%M:%S')
+                    }
 
         position_info = "Không có tín hiệu mua/bán trong 7 ngày qua."
+
         if recent_signal and recent_signal['type'] == 'BÁN':
             buy_before_sell = None
             for _, row in df[::-1].iterrows():
-                if row['timestamp'] < pd.Timestamp(recent_signal['timestamp']).tz_localize(vietnam_tz):
+                row_timestamp = row['timestamp']
+                if row_timestamp < pd.Timestamp(recent_signal['timestamp']).tz_localize(vietnam_tz):
                     if row['close'] > row['MA50'] and row['MACD'] > row['Signal'] and row['RSI'] < 30:
                         buy_before_sell = {
                             "price": row['close'],
-                            "timestamp": row['timestamp'].strftime('%Y-%m-%d %H:%M:%S')
+                            "timestamp": row_timestamp.strftime('%Y-%m-%d %H:%M:%S')
                         }
                         break
 
