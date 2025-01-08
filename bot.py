@@ -401,7 +401,7 @@ async def chart(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
         # Layout
         fig.update_layout(
-            title=f"{symbol} Technical Analysis Chart (1H)",
+            title=f"BIỂU ĐỒ PHÂN TÍCH KỸ THUẬT (1H) CỦA {symbol}",
             template="plotly_dark",
             height=1200,  # Tăng chiều cao biểu đồ tổng thể
             xaxis_rangeslider_visible=False
