@@ -120,113 +120,71 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
                 trend = "ĐI NGANG"
 
         recent_buy_signal = None
-        recent_signal = None
+        recent_sell_signal = None
+        now = pd.Timestamp.now(tz=vietnam_tz)
 
-        # Kiểm tra tín hiệu từ dòng cuối cùng
-        if last_row['close'] > last_row['MA50'] and last_row['MACD'] > last_row['Signal'] and last_row['RSI'] < 30:
-            recent_buy_signal = {
-                "price": last_row['close'],
-                "timestamp": last_row['timestamp']
-            }
-        elif last_row['close'] <= last_row['BB_Lower']:
-            recent_buy_signal = {
-                "price": last_row['close'],
-                "timestamp": last_row['timestamp']
-            }
+        for _, row in df.iterrows():
+            if row['timestamp'] < (now - pd.Timedelta(days=7)):
+                continue
 
-        if last_row['close'] < last_row['MA50'] and last_row['MACD'] < last_row['Signal'] and last_row['RSI'] > 70:
-            recent_signal = {
-                "type": "BÁN",
-                "price": last_row['close'],
-                "timestamp": last_row['timestamp']
-            }
-        elif last_row['close'] >= last_row['BB_Upper']:
-            recent_signal = {
-                "type": "BÁN",
-                "price": last_row['close'],
-                "timestamp": last_row['timestamp']
-            }
-
-        # Bổ sung kiểm tra tín hiệu từ dữ liệu mới nhất nếu chưa có tín hiệu từ dòng cuối
-        if not recent_buy_signal or not recent_signal:
-            ticker_realtime = exchange.fetch_ticker(symbol)
-            realtime_price = ticker_realtime['last']
-            realtime_macd = ticker_realtime['last'] - df['EMA26'].iloc[-1]
-            realtime_signal = realtime_macd - df['Signal'].iloc[-1]
-
-            if realtime_price > df['MA50'].iloc[-1] and realtime_macd > realtime_signal and df['RSI'].iloc[-1] < 30:
+            if not recent_buy_signal and (row['close'] > row['MA50'] and row['MACD'] > row['Signal'] and row['RSI'] < 30):
                 recent_buy_signal = {
-                    "price": realtime_price,
-                    "timestamp": pd.Timestamp.now(tz=vietnam_tz)
-                }
-            elif realtime_price <= df['BB_Lower'].iloc[-1]:
-                recent_buy_signal = {
-                    "price": realtime_price,
-                    "timestamp": pd.Timestamp.now(tz=vietnam_tz)
+                    "price": row['close'],
+                    "timestamp": row['timestamp']
                 }
 
-            if realtime_price < df['MA50'].iloc[-1] and realtime_macd < realtime_signal and df['RSI'].iloc[-1] > 70:
-                recent_signal = {
-                    "type": "BÁN",
-                    "price": realtime_price,
-                    "timestamp": pd.Timestamp.now(tz=vietnam_tz)
+            elif not recent_buy_signal and row['close'] <= row['BB_Lower']:
+                recent_buy_signal = {
+                    "price": row['close'],
+                    "timestamp": row['timestamp']
                 }
-            elif realtime_price >= df['BB_Upper'].iloc[-1]:
-                recent_signal = {
+
+            if not recent_sell_signal and (row['close'] < row['MA50'] and row['MACD'] < row['Signal'] and row['RSI'] > 70):
+                recent_sell_signal = {
                     "type": "BÁN",
-                    "price": realtime_price,
-                    "timestamp": pd.Timestamp.now(tz=vietnam_tz)
+                    "price": row['close'],
+                    "timestamp": row['timestamp']
+                }
+
+            elif not recent_sell_signal and row['close'] >= row['BB_Upper']:
+                recent_sell_signal = {
+                    "type": "BÁN",
+                    "price": row['close'],
+                    "timestamp": row['timestamp']
                 }
 
         position_info = "Không có tín hiệu mua/bán trong 7 ngày qua."
-        if recent_signal:  # Nếu có tín hiệu bán gần nhất
-            if recent_signal['type'] == 'BÁN':
-                # Tìm tín hiệu mua gần nhất trước tín hiệu bán
-                buy_signal_before_sell = None
-                for _, row in df.iterrows():
-                    if row['timestamp'] < recent_signal['timestamp']:  # Chỉ xét các tín hiệu trước tín hiệu bán
-                        if row['close'] > row['MA50'] and row['MACD'] > row['Signal'] and row['RSI'] < 30:
-                            buy_signal_before_sell = {
-                                "price": row['close'],
-                                "timestamp": row['timestamp']
-                            }
-                        elif row['close'] <= row['BB_Lower']:
-                            buy_signal_before_sell = {
-                                "price": row['close'],
-                                "timestamp": row['timestamp']
-                            }
+        if recent_sell_signal:
+            sell_price = recent_sell_signal['price']
+            sell_time = recent_sell_signal['timestamp']
+            if recent_buy_signal:
+                buy_price = recent_buy_signal['price']
+                buy_time = recent_buy_signal['timestamp'].strftime('%Y-%m-%d %H:%M:%S')
+                profit_loss = ((sell_price - buy_price) / buy_price) * 100
+                profit_color = (
+                    f"{profit_loss:.2f}% 🟢" if profit_loss > 0 else
+                    f"{profit_loss:.2f}% 🔴" if profit_loss < 0 else
+                    f"{profit_loss:.2f}% 🟡"
+                )
+                position_info = (
+                    f"- Xu hướng: **{trend}**\n"
+                    f"- Vị thế hiện tại: **BÁN**\n"
+                    f"- Ngày mua: {buy_time}\n"
+                    f"- Giá mua: {buy_price:.2f} {quote_currency}\n"
+                    f"- Ngày bán: {sell_time}\n"
+                    f"- Giá bán: {sell_price:.2f} {quote_currency}\n"
+                    f"- Lãi/Lỗ: {profit_color}"
+                )
+            else:
+                position_info = (
+                    f"- Xu hướng: **{trend}**\n"
+                    f"- Vị thế hiện tại: **BÁN**\n"
+                    f"- Ngày bán: {sell_time}\n"
+                    f"- Giá bán: {sell_price:.2f} {quote_currency}\n"
+                    f"- Lãi/Lỗ: Không xác định (không có tín hiệu mua trước đó)."
+                )
 
-                sell_price = recent_signal['price']
-                sell_time = recent_signal['timestamp']
-
-                if buy_signal_before_sell:  # Nếu tìm thấy tín hiệu mua phù hợp
-                    buy_price = buy_signal_before_sell['price']
-                    buy_time = buy_signal_before_sell['timestamp'].strftime('%Y-%m-%d %H:%M:%S')
-                    profit_loss = ((sell_price - buy_price) / buy_price) * 100
-                    profit_color = (
-                        f"{profit_loss:.2f}% 🟢" if profit_loss > 0 else
-                        f"{profit_loss:.2f}% 🔴" if profit_loss < 0 else
-                        f"{profit_loss:.2f}% 🟡"
-                    )
-                    position_info = (
-                        f"- Xu hướng: **{trend}**\n"
-                        f"- Vị thế hiện tại: **BÁN**\n"
-                        f"- Ngày mua: {buy_time}\n"
-                        f"- Giá mua: {buy_price:.2f} {quote_currency}\n"
-                        f"- Ngày bán: {sell_time}\n"
-                        f"- Giá bán: {sell_price:.2f} {quote_currency}\n"
-                        f"- Lãi/Lỗ: {profit_color}"
-                    )
-                else:  # Không tìm thấy tín hiệu mua trước đó
-                    position_info = (
-                        f"- Xu hướng: **{trend}**\n"
-                        f"- Vị thế hiện tại: **BÁN**\n"
-                        f"- Ngày bán: {recent_signal['timestamp'].strftime('%Y-%m-%d %H:%M:%S')}\n"
-                        f"- Giá bán: {recent_signal['price']:.2f} {quote_currency}\n"
-                        f"- Lãi/Lỗ: Không xác định (không có tín hiệu mua trước đó)."
-                    )
-
-        elif recent_buy_signal:  # Nếu tín hiệu gần nhất là MUA
+        elif recent_buy_signal:
             buy_price = recent_buy_signal['price']
             buy_time = recent_buy_signal['timestamp']
             profit_loss = ((current_price - buy_price) / buy_price) * 100
