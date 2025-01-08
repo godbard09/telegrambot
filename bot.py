@@ -120,48 +120,32 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
                 trend = "ĐI NGANG"
 
         recent_buy_signal = None
-        max_buy_timestamp = None
         recent_signal = None
-        max_signal_timestamp = None
-        now = pd.Timestamp.now(tz=vietnam_tz)
 
-        for _, row in df.iterrows():
-            if row['timestamp'] < (now - pd.Timedelta(days=7)):
-                continue
+        # Kiểm tra tín hiệu từ dòng cuối cùng
+        if last_row['close'] > last_row['MA50'] and last_row['MACD'] > last_row['Signal'] and last_row['RSI'] < 30:
+            recent_buy_signal = {
+                "price": last_row['close'],
+                "timestamp": last_row['timestamp']
+            }
+        elif last_row['close'] <= last_row['BB_Lower']:
+            recent_buy_signal = {
+                "price": last_row['close'],
+                "timestamp": last_row['timestamp']
+            }
 
-            if row['close'] > row['MA50'] and row['MACD'] > row['Signal'] and row['RSI'] < 30:
-                if max_buy_timestamp is None or row['timestamp'] > max_buy_timestamp:
-                    max_buy_timestamp = row['timestamp']
-                    recent_buy_signal = {
-                        "price": row['close'],
-                        "timestamp": row['timestamp']
-                    }
-
-            elif row['close'] <= row['BB_Lower']:
-                if max_buy_timestamp is None or row['timestamp'] > max_buy_timestamp:
-                    max_buy_timestamp = row['timestamp']
-                    recent_buy_signal = {
-                        "price": row['close'],
-                        "timestamp": row['timestamp']
-                    }
-
-            if row['close'] < row['MA50'] and row['MACD'] < row['Signal'] and row['RSI'] > 70:
-                if max_signal_timestamp is None or row['timestamp'] > max_signal_timestamp:
-                    max_signal_timestamp = row['timestamp']
-                    recent_signal = {
-                        "type": "BÁN",
-                        "price": row['close'],
-                        "timestamp": row['timestamp']
-                    }
-
-            elif row['close'] >= row['BB_Upper']:
-                if max_signal_timestamp is None or row['timestamp'] > max_signal_timestamp:
-                    max_signal_timestamp = row['timestamp']
-                    recent_signal = {
-                        "type": "BÁN",
-                        "price": row['close'],
-                        "timestamp": row['timestamp']
-                    }
+        if last_row['close'] < last_row['MA50'] and last_row['MACD'] < last_row['Signal'] and last_row['RSI'] > 70:
+            recent_signal = {
+                "type": "BÁN",
+                "price": last_row['close'],
+                "timestamp": last_row['timestamp']
+            }
+        elif last_row['close'] >= last_row['BB_Upper']:
+            recent_signal = {
+                "type": "BÁN",
+                "price": last_row['close'],
+                "timestamp": last_row['timestamp']
+            }
 
         position_info = "Không có tín hiệu mua/bán trong 7 ngày qua."
         if recent_signal:  # Nếu có tín hiệu bán gần nhất
@@ -169,7 +153,7 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
                 # Tìm tín hiệu mua gần nhất trước tín hiệu bán
                 buy_signal_before_sell = None
                 for _, row in df.iterrows():
-                    if row['timestamp'] < max_signal_timestamp:  # Chỉ xét các tín hiệu trước tín hiệu bán
+                    if row['timestamp'] < recent_signal['timestamp']:  # Chỉ xét các tín hiệu trước tín hiệu bán
                         if row['close'] > row['MA50'] and row['MACD'] > row['Signal'] and row['RSI'] < 30:
                             buy_signal_before_sell = {
                                 "price": row['close'],
@@ -241,6 +225,7 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
     except Exception as e:
         await update.message.reply_text(f"Đã xảy ra lỗi: {e}")
+
 
 
 async def chart(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
