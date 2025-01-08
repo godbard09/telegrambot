@@ -93,8 +93,8 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
             await update.message.reply_text("Không đủ dữ liệu để tính toán chỉ báo kỹ thuật. Vui lòng thử lại sau.")
             return
 
+        # Calculate indicators
         df['MA50'] = df['close'].rolling(window=50).mean()
-        df['MA100'] = df['close'].rolling(window=100).mean()
         df['EMA12'] = df['close'].ewm(span=12).mean()
         df['EMA26'] = df['close'].ewm(span=26).mean()
         df['MACD'] = df['EMA12'] - df['EMA26']
@@ -104,84 +104,47 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
         rs = gain / loss
         df['RSI'] = 100 - (100 / (1 + rs))
-        df['BB_Middle'] = df['close'].rolling(window=20).mean()
-        df['BB_Upper'] = df['BB_Middle'] + 2 * df['close'].rolling(window=20).std()
-        df['BB_Lower'] = df['BB_Middle'] - 2 * df['close'].rolling(window=20).std()
 
-        trend = "Không xác định"
-        if len(df) > 1:
-            last_row = df.iloc[-1]
-            prev_row = df.iloc[-2]
-            if last_row['close'] > last_row['MA50'] and last_row['close'] > last_row['MA100'] and last_row['MA50'] > prev_row['MA50']:
-                trend = "TĂNG"
-            elif last_row['close'] < last_row['MA50'] and last_row['close'] < last_row['MA100'] and last_row['MA50'] < prev_row['MA50']:
-                trend = "GIẢM"
-            else:
-                trend = "ĐI NGANG"
-
+        # Find latest signals
         recent_buy_signal = None
-        max_buy_timestamp = None
-        recent_signal = None
-        max_signal_timestamp = None
-        now = pd.Timestamp.now(tz=vietnam_tz)
+        recent_sell_signal = None
 
-        for _, row in df.iterrows():
+        for _, row in df[::-1].iterrows():
             if row['close'] > row['MA50'] and row['MACD'] > row['Signal'] and row['RSI'] < 30:
                 recent_buy_signal = {
                     "price": row['close'],
                     "timestamp": row['timestamp']
                 }
+                break
 
-            elif row['close'] <= row['BB_Lower']:
-                recent_buy_signal = {
-                    "price": row['close'],
-                    "timestamp": row['timestamp']
-                }
-
+        for _, row in df[::-1].iterrows():
             if row['close'] < row['MA50'] and row['MACD'] < row['Signal'] and row['RSI'] > 70:
-                recent_signal = {
-                    "type": "BÁN",
+                recent_sell_signal = {
                     "price": row['close'],
                     "timestamp": row['timestamp']
                 }
+                break
 
-            elif row['close'] >= row['BB_Upper']:
-                recent_signal = {
-                    "type": "BÁN",
-                    "price": row['close'],
-                    "timestamp": row['timestamp']
-                }
-
-        # Kiểm tra tín hiệu hiện tại
-        current_signal = "Không xác định"
-        if df.iloc[-1]['close'] > df.iloc[-1]['MA50'] and df.iloc[-1]['MACD'] > df.iloc[-1]['Signal'] and df.iloc[-1]['RSI'] < 30:
-            current_signal = "MUA"
-        elif df.iloc[-1]['close'] < df.iloc[-1]['MA50'] and df.iloc[-1]['MACD'] < df.iloc[-1]['Signal'] and df.iloc[-1]['RSI'] > 70:
-            current_signal = "BÁN"
-
+        # Determine position
         position_info = "Không có tín hiệu mua/bán trong 7 ngày qua."
-        if current_signal == "MUA":
-            buy_price = df.iloc[-1]['close']
-            buy_time = df.iloc[-1]['timestamp'].strftime('%Y-%m-%d %H:%M:%S')
-            profit_loss = ((current_price - buy_price) / buy_price) * 100
-            profit_color = (
-                f"{profit_loss:.2f}% 🟢" if profit_loss > 0 else
-                f"{profit_loss:.2f}% 🔴" if profit_loss < 0 else
-                f"{profit_loss:.2f}% 🟡"
-            )
-            position_info = (
-                f"- Xu hướng: **{trend}**\n"
-                f"- Vị thế hiện tại: **MUA**\n"
-                f"- Ngày mua: {buy_time}\n"
-                f"- Giá mua: {buy_price:.2f} {quote_currency}\n"
-                f"- Lãi/Lỗ: {profit_color}"
-            )
-        elif current_signal == "BÁN":
-            sell_price = df.iloc[-1]['close']
-            sell_time = df.iloc[-1]['timestamp'].strftime('%Y-%m-%d %H:%M:%S')
-            if recent_buy_signal:
-                buy_price = recent_buy_signal['price']
-                buy_time = recent_buy_signal['timestamp'].strftime('%Y-%m-%d %H:%M:%S')
+        if recent_sell_signal and (not recent_buy_signal or recent_sell_signal['timestamp'] > recent_buy_signal['timestamp']):
+            # Sell position
+            sell_price = recent_sell_signal['price']
+            sell_time = recent_sell_signal['timestamp']
+
+            # Find the most recent buy signal before the sell signal
+            prior_buy_signal = None
+            for _, row in df[::-1].iterrows():
+                if row['timestamp'] < sell_time and row['close'] > row['MA50'] and row['MACD'] > row['Signal'] and row['RSI'] < 30:
+                    prior_buy_signal = {
+                        "price": row['close'],
+                        "timestamp": row['timestamp']
+                    }
+                    break
+
+            if prior_buy_signal:
+                buy_price = prior_buy_signal['price']
+                buy_time = prior_buy_signal['timestamp']
                 profit_loss = ((sell_price - buy_price) / buy_price) * 100
                 profit_color = (
                     f"{profit_loss:.2f}% 🟢" if profit_loss > 0 else
@@ -189,23 +152,42 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
                     f"{profit_loss:.2f}% 🟡"
                 )
                 position_info = (
-                    f"- Xu hướng: **{trend}**\n"
+                    f"- Xu hướng: **GIẢM**\n"
                     f"- Vị thế hiện tại: **BÁN**\n"
-                    f"- Ngày mua: {buy_time}\n"
+                    f"- Ngày mua: {buy_time.strftime('%Y-%m-%d %H:%M:%S')}\n"
                     f"- Giá mua: {buy_price:.2f} {quote_currency}\n"
-                    f"- Ngày bán: {sell_time}\n"
+                    f"- Ngày bán: {sell_time.strftime('%Y-%m-%d %H:%M:%S')}\n"
                     f"- Giá bán: {sell_price:.2f} {quote_currency}\n"
                     f"- Lãi/Lỗ: {profit_color}"
                 )
             else:
                 position_info = (
-                    f"- Xu hướng: **{trend}**\n"
+                    f"- Xu hướng: **GIẢM**\n"
                     f"- Vị thế hiện tại: **BÁN**\n"
-                    f"- Ngày bán: {sell_time}\n"
+                    f"- Ngày bán: {sell_time.strftime('%Y-%m-%d %H:%M:%S')}\n"
                     f"- Giá bán: {sell_price:.2f} {quote_currency}\n"
                     f"- Lãi/Lỗ: Không xác định (không có tín hiệu mua trước đó)."
                 )
 
+        elif recent_buy_signal:
+            # Buy position
+            buy_price = recent_buy_signal['price']
+            buy_time = recent_buy_signal['timestamp']
+            profit_loss = ((current_price - buy_price) / buy_price) * 100
+            profit_color = (
+                f"{profit_loss:.2f}% 🟢" if profit_loss > 0 else
+                f"{profit_loss:.2f}% 🔴" if profit_loss < 0 else
+                f"{profit_loss:.2f}% 🟡"
+            )
+            position_info = (
+                f"- Xu hướng: **TĂNG**\n"
+                f"- Vị thế hiện tại: **MUA**\n"
+                f"- Ngày mua: {buy_time.strftime('%Y-%m-%d %H:%M:%S')}\n"
+                f"- Giá mua: {buy_price:.2f} {quote_currency}\n"
+                f"- Lãi/Lỗ: {profit_color}"
+            )
+
+        # Send message
         message = escape_markdown(
             f"Thông tin giá hiện tại cho {symbol}:\n"
             f"- Giá hiện tại: {current_price:.2f} {quote_currency}\n"
@@ -219,7 +201,6 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
     except Exception as e:
         await update.message.reply_text(f"Đã xảy ra lỗi: {e}")
-
 
 
 
