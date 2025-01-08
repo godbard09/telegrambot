@@ -147,33 +147,36 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
                 "timestamp": last_row['timestamp']
             }
 
-        # Nếu dòng cuối không có tín hiệu, duyệt qua các dòng khác để tìm tín hiệu gần nhất
+        # Bổ sung kiểm tra tín hiệu từ dữ liệu mới nhất nếu chưa có tín hiệu từ dòng cuối
         if not recent_buy_signal or not recent_signal:
-            for _, row in df.iterrows():
-                if row['timestamp'] < last_row['timestamp']:  # Chỉ xét các dòng trước dòng cuối
-                    if row['close'] > row['MA50'] and row['MACD'] > row['Signal'] and row['RSI'] < 30:
-                        recent_buy_signal = {
-                            "price": row['close'],
-                            "timestamp": row['timestamp']
-                        }
-                    elif row['close'] <= row['BB_Lower']:
-                        recent_buy_signal = {
-                            "price": row['close'],
-                            "timestamp": row['timestamp']
-                        }
+            ticker_realtime = exchange.fetch_ticker(symbol)
+            realtime_price = ticker_realtime['last']
+            realtime_macd = ticker_realtime['last'] - df['EMA26'].iloc[-1]
+            realtime_signal = realtime_macd - df['Signal'].iloc[-1]
 
-                    if row['close'] < row['MA50'] and row['MACD'] < row['Signal'] and row['RSI'] > 70:
-                        recent_signal = {
-                            "type": "BÁN",
-                            "price": row['close'],
-                            "timestamp": row['timestamp']
-                        }
-                    elif row['close'] >= row['BB_Upper']:
-                        recent_signal = {
-                            "type": "BÁN",
-                            "price": row['close'],
-                            "timestamp": row['timestamp']
-                        }
+            if realtime_price > df['MA50'].iloc[-1] and realtime_macd > realtime_signal and df['RSI'].iloc[-1] < 30:
+                recent_buy_signal = {
+                    "price": realtime_price,
+                    "timestamp": pd.Timestamp.now(tz=vietnam_tz)
+                }
+            elif realtime_price <= df['BB_Lower'].iloc[-1]:
+                recent_buy_signal = {
+                    "price": realtime_price,
+                    "timestamp": pd.Timestamp.now(tz=vietnam_tz)
+                }
+
+            if realtime_price < df['MA50'].iloc[-1] and realtime_macd < realtime_signal and df['RSI'].iloc[-1] > 70:
+                recent_signal = {
+                    "type": "BÁN",
+                    "price": realtime_price,
+                    "timestamp": pd.Timestamp.now(tz=vietnam_tz)
+                }
+            elif realtime_price >= df['BB_Upper'].iloc[-1]:
+                recent_signal = {
+                    "type": "BÁN",
+                    "price": realtime_price,
+                    "timestamp": pd.Timestamp.now(tz=vietnam_tz)
+                }
 
         position_info = "Không có tín hiệu mua/bán trong 7 ngày qua."
         if recent_signal:  # Nếu có tín hiệu bán gần nhất
@@ -218,8 +221,8 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
                     position_info = (
                         f"- Xu hướng: **{trend}**\n"
                         f"- Vị thế hiện tại: **BÁN**\n"
-                        f"- Ngày bán: {sell_time}\n"
-                        f"- Giá bán: {sell_price:.2f} {quote_currency}\n"
+                        f"- Ngày bán: {recent_signal['timestamp'].strftime('%Y-%m-%d %H:%M:%S')}\n"
+                        f"- Giá bán: {recent_signal['price']:.2f} {quote_currency}\n"
                         f"- Lãi/Lỗ: Không xác định (không có tín hiệu mua trước đó)."
                     )
 
@@ -253,6 +256,7 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
     except Exception as e:
         await update.message.reply_text(f"Đã xảy ra lỗi: {e}")
+
 
 async def chart(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Tạo và gửi biểu đồ kỹ thuật."""
