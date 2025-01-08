@@ -55,152 +55,177 @@ def escape_markdown(text: str, ignore: list = None) -> str:
 
 
 async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    try:
-        symbol = context.args[0] if context.args else None
-        if not symbol:
-            await update.message.reply_text("Vui lòng cung cấp mã giao dịch. Ví dụ: /smarttrade BTC/USDT")
-            return
+        try:
+            symbol = context.args[0] if context.args else None
+            if not symbol:
+                await update.message.reply_text("Vui lòng cung cấp mã giao dịch. Ví dụ: /smarttrade BTC/USDT")
+                return
 
-        markets = exchange.load_markets()
-        if symbol not in markets:
-            await update.message.reply_text(f"Mã giao dịch không hợp lệ: {symbol}. Vui lòng kiểm tra lại.")
-            return
+            markets = exchange.load_markets()
+            if symbol not in markets:
+                await update.message.reply_text(f"Mã giao dịch không hợp lệ: {symbol}. Vui lòng kiểm tra lại.")
+                return
 
-        quote_currency = symbol.split('/')[1]
-        ticker = exchange.fetch_ticker(symbol)
-        current_price = ticker['last']
-        percentage_change = ticker['percentage']
-        volume_24h = ticker.get('quoteVolume', 0)
+            quote_currency = symbol.split('/')[1]
+            ticker = exchange.fetch_ticker(symbol)
+            current_price = ticker['last']
+            percentage_change = ticker['percentage']
+            volume_24h = ticker.get('quoteVolume', 0)
 
-        timestamp = (
-            pd.to_datetime(ticker['timestamp'], unit='ms')
-            .tz_localize('UTC')
-            .tz_convert(vietnam_tz)
-            .strftime('%Y-%m-%d %H:%M:%S')
-        )
+            timestamp = (
+                pd.to_datetime(ticker['timestamp'], unit='ms')
+                .tz_localize('UTC')
+                .tz_convert(vietnam_tz)
+                .strftime('%Y-%m-%d %H:%M:%S')
+            )
 
-        timeframe = '6h'
-        limit = 500
-        ohlcv = exchange.fetch_ohlcv(symbol, timeframe, limit=limit)
-        df = pd.DataFrame(ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
-        df['timestamp'] = (
-            pd.to_datetime(df['timestamp'], unit='ms')
-            .dt.tz_localize('UTC')
-            .dt.tz_convert(vietnam_tz)
-        )
+            timeframe = '6h'
+            limit = 500
+            ohlcv = exchange.fetch_ohlcv(symbol, timeframe, limit=limit)
+            df = pd.DataFrame(ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
+            df['timestamp'] = (
+                pd.to_datetime(df['timestamp'], unit='ms')
+                .dt.tz_localize('UTC')
+                .dt.tz_convert(vietnam_tz)
+            )
 
-        if len(df) < 100:
-            await update.message.reply_text("Không đủ dữ liệu để tính toán chỉ báo kỹ thuật. Vui lòng thử lại sau.")
-            return
+            if len(df) < 100:
+                await update.message.reply_text("Không đủ dữ liệu để tính toán chỉ báo kỹ thuật. Vui lòng thử lại sau.")
+                return
 
-        # Calculate indicators
-        df['MA50'] = df['close'].rolling(window=50).mean()
-        df['EMA12'] = df['close'].ewm(span=12).mean()
-        df['EMA26'] = df['close'].ewm(span=26).mean()
-        df['MACD'] = df['EMA12'] - df['EMA26']
-        df['Signal'] = df['MACD'].ewm(span=9).mean()
-        delta = df['close'].diff()
-        gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
-        loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
-        rs = gain / loss
-        df['RSI'] = 100 - (100 / (1 + rs))
+            df['MA50'] = df['close'].rolling(window=50).mean()
+            df['MA100'] = df['close'].rolling(window=100).mean()
+            df['EMA12'] = df['close'].ewm(span=12).mean()
+            df['EMA26'] = df['close'].ewm(span=26).mean()
+            df['MACD'] = df['EMA12'] - df['EMA26']
+            df['Signal'] = df['MACD'].ewm(span=9).mean()
+            delta = df['close'].diff()
+            gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
+            loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
+            rs = gain / loss
+            df['RSI'] = 100 - (100 / (1 + rs))
+            df['BB_Middle'] = df['close'].rolling(window=20).mean()
+            df['BB_Upper'] = df['BB_Middle'] + 2 * df['close'].rolling(window=20).std()
+            df['BB_Lower'] = df['BB_Middle'] - df['close'].rolling(window=20).std()
 
-        # Find latest signals
-        recent_buy_signal = None
-        recent_sell_signal = None
+            trend = "Không xác định"
+            if len(df) > 1:
+                last_row = df.iloc[-1]
+                prev_row = df.iloc[-2]
+                if last_row['close'] > last_row['MA50'] and last_row['close'] > last_row['MA100'] and last_row['MA50'] > prev_row['MA50']:
+                    trend = "TĂNG"
+                elif last_row['close'] < last_row['MA50'] and last_row['close'] < last_row['MA100'] and last_row['MA50'] < prev_row['MA50']:
+                    trend = "GIẢM"
+                else:
+                    trend = "ĐI NGANG"
 
-        for _, row in df[::-1].iterrows():
-            if row['close'] > row['MA50'] and row['MACD'] > row['Signal'] and row['RSI'] < 30:
-                recent_buy_signal = {
-                    "price": row['close'],
-                    "timestamp": row['timestamp']
-                }
-                break
+            recent_buy_signal = None
+            max_buy_timestamp = None
+            recent_signal = None
+            max_signal_timestamp = None
+            now = pd.Timestamp.now(tz=vietnam_tz)
 
-        for _, row in df[::-1].iterrows():
-            if row['close'] < row['MA50'] and row['MACD'] < row['Signal'] and row['RSI'] > 70:
-                recent_sell_signal = {
-                    "price": row['close'],
-                    "timestamp": row['timestamp']
-                }
-                break
+            for _, row in df.iterrows():
+                if row['timestamp'] < (now - pd.Timedelta(days=7)):
+                    continue
 
-        # Determine position
-        position_info = "Không có tín hiệu mua/bán trong 7 ngày qua."
-        if recent_sell_signal and (not recent_buy_signal or recent_sell_signal['timestamp'] > recent_buy_signal['timestamp']):
-            # Sell position
-            sell_price = recent_sell_signal['price']
-            sell_time = recent_sell_signal['timestamp']
+                if row['close'] > row['MA50'] and row['MACD'] > row['Signal'] and row['RSI'] < 30:
+                    if max_buy_timestamp is None or row['timestamp'] > max_buy_timestamp:
+                        max_buy_timestamp = row['timestamp']
+                        recent_buy_signal = {
+                            "price": row['close'],
+                            "timestamp": row['timestamp'].strftime('%Y-%m-%d %H:%M:%S')
+                        }
 
-            # Find the most recent buy signal before the sell signal
-            prior_buy_signal = None
-            for _, row in df[::-1].iterrows():
-                if row['timestamp'] < sell_time and row['close'] > row['MA50'] and row['MACD'] > row['Signal'] and row['RSI'] < 30:
-                    prior_buy_signal = {
-                        "price": row['close'],
-                        "timestamp": row['timestamp']
-                    }
-                    break
+                elif row['close'] <= row['BB_Lower']:
+                    if max_buy_timestamp is None or row['timestamp'] > max_buy_timestamp:
+                        max_buy_timestamp = row['timestamp']
+                        recent_buy_signal = {
+                            "price": row['close'],
+                            "timestamp": row['timestamp'].strftime('%Y-%m-%d %H:%M:%S')
+                        }
 
-            if prior_buy_signal:
-                buy_price = prior_buy_signal['price']
-                buy_time = prior_buy_signal['timestamp']
-                profit_loss = ((sell_price - buy_price) / buy_price) * 100
+                if row['close'] < row['MA50'] and row['MACD'] < row['Signal'] and row['RSI'] > 70:
+                    if max_signal_timestamp is None or row['timestamp'] > max_signal_timestamp:
+                        max_signal_timestamp = row['timestamp']
+                        recent_signal = {
+                            "type": "BÁN",
+                            "price": row['close'],
+                            "timestamp": row['timestamp'].strftime('%Y-%m-%d %H:%M:%S')
+                        }
+
+                elif row['close'] >= row['BB_Upper']:
+                    if max_signal_timestamp is None or row['timestamp'] > max_signal_timestamp:
+                        max_signal_timestamp = row['timestamp']
+                        recent_signal = {
+                            "type": "BÁN",
+                            "price": row['close'],
+                            "timestamp": row['timestamp'].strftime('%Y-%m-%d %H:%M:%S')
+                        }
+
+            position_info = "Không có tín hiệu mua/bán trong 7 ngày qua."
+            if recent_signal:
+                if recent_signal['type'] == 'BÁN':
+                    if recent_buy_signal:  # Nếu có tín hiệu mua trước đó
+                        buy_price = recent_buy_signal['price']
+                        buy_time = recent_buy_signal['timestamp']
+                        sell_price = recent_signal['price']
+                        sell_time = recent_signal['timestamp']
+                        profit_loss = ((sell_price - buy_price) / buy_price) * 100
+                        profit_color = (
+                            f"{profit_loss:.2f}% 🟢" if profit_loss > 0 else
+                            f"{profit_loss:.2f}% 🔴" if profit_loss < 0 else
+                            f"{profit_loss:.2f}% 🟡"
+                        )
+                        position_info = (
+                            f"- Xu hướng: **{trend}**\n"
+                            f"- Vị thế hiện tại: **BÁN**\n"
+                            f"- Ngày mua: {buy_time}\n"
+                            f"- Giá mua: {buy_price:.2f} {quote_currency}\n"
+                            f"- Ngày bán: {sell_time}\n"
+                            f"- Giá bán: {sell_price:.2f} {quote_currency}\n"
+                            f"- Lãi/Lỗ: {profit_color}"
+                        )
+                    else:  # Không có tín hiệu mua trước đó
+                        sell_price = recent_signal['price']
+                        sell_time = recent_signal['timestamp']
+                        position_info = (
+                            f"- Xu hướng: **{trend}**\n"
+                            f"- Vị thế hiện tại: **BÁN**\n"
+                            f"- Ngày bán: {sell_time}\n"
+                            f"- Giá bán: {sell_price:.2f} {quote_currency}\n"
+                            f"- Lãi/Lỗ: Không xác định (không có tín hiệu mua trước đó)."
+                        )
+            elif recent_buy_signal:  # Nếu chỉ có tín hiệu mua
+                buy_price = recent_buy_signal['price']
+                buy_time = recent_buy_signal['timestamp']
+                profit_loss = ((current_price - buy_price) / buy_price) * 100
                 profit_color = (
                     f"{profit_loss:.2f}% 🟢" if profit_loss > 0 else
                     f"{profit_loss:.2f}% 🔴" if profit_loss < 0 else
                     f"{profit_loss:.2f}% 🟡"
                 )
                 position_info = (
-                    f"- Xu hướng: **GIẢM**\n"
-                    f"- Vị thế hiện tại: **BÁN**\n"
-                    f"- Ngày mua: {buy_time.strftime('%Y-%m-%d %H:%M:%S')}\n"
+                    f"- Xu hướng: **{trend}**\n"
+                    f"- Vị thế hiện tại: **MUA**\n"
+                    f"- Ngày mua: {buy_time}\n"
                     f"- Giá mua: {buy_price:.2f} {quote_currency}\n"
-                    f"- Ngày bán: {sell_time.strftime('%Y-%m-%d %H:%M:%S')}\n"
-                    f"- Giá bán: {sell_price:.2f} {quote_currency}\n"
                     f"- Lãi/Lỗ: {profit_color}"
                 )
-            else:
-                position_info = (
-                    f"- Xu hướng: **GIẢM**\n"
-                    f"- Vị thế hiện tại: **BÁN**\n"
-                    f"- Ngày bán: {sell_time.strftime('%Y-%m-%d %H:%M:%S')}\n"
-                    f"- Giá bán: {sell_price:.2f} {quote_currency}\n"
-                    f"- Lãi/Lỗ: Không xác định (không có tín hiệu mua trước đó)."
-                )
 
-        elif recent_buy_signal:
-            # Buy position
-            buy_price = recent_buy_signal['price']
-            buy_time = recent_buy_signal['timestamp']
-            profit_loss = ((current_price - buy_price) / buy_price) * 100
-            profit_color = (
-                f"{profit_loss:.2f}% 🟢" if profit_loss > 0 else
-                f"{profit_loss:.2f}% 🔴" if profit_loss < 0 else
-                f"{profit_loss:.2f}% 🟡"
+            message = escape_markdown(
+                f"Thông tin giá hiện tại cho {symbol}:\n"
+                f"- Giá hiện tại: {current_price:.2f} {quote_currency}\n"
+                f"- Biến động trong 24 giờ qua: {percentage_change:.2f}%\n"
+                f"- Khối lượng giao dịch trong 24 giờ qua: {volume_24h:.2f} {quote_currency}\n"
+                f"- Thời gian cập nhật: {timestamp}\n\n"
+                f"Thông tin vị thế:\n{position_info}",
+                ignore=["*"]
             )
-            position_info = (
-                f"- Xu hướng: **TĂNG**\n"
-                f"- Vị thế hiện tại: **MUA**\n"
-                f"- Ngày mua: {buy_time.strftime('%Y-%m-%d %H:%M:%S')}\n"
-                f"- Giá mua: {buy_price:.2f} {quote_currency}\n"
-                f"- Lãi/Lỗ: {profit_color}"
-            )
+            await update.message.reply_text(message, parse_mode="MarkdownV2")
 
-        # Send message
-        message = escape_markdown(
-            f"Thông tin giá hiện tại cho {symbol}:\n"
-            f"- Giá hiện tại: {current_price:.2f} {quote_currency}\n"
-            f"- Biến động trong 24 giờ qua: {percentage_change:.2f}%\n"
-            f"- Khối lượng giao dịch trong 24 giờ qua: {volume_24h:.2f} {quote_currency}\n"
-            f"- Thời gian cập nhật: {timestamp}\n\n"
-            f"Thông tin vị thế:\n{position_info}",
-            ignore=["*"]
-        )
-        await update.message.reply_text(message, parse_mode="MarkdownV2")
-
-    except Exception as e:
-        await update.message.reply_text(f"Đã xảy ra lỗi: {e}")
+        except Exception as e:
+            await update.message.reply_text(f"Đã xảy ra lỗi: {e}")
 
 
 
