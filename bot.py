@@ -24,12 +24,12 @@ signal_history = {}
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Gửi tin nhắn chào mừng và hướng dẫn."""
     await update.message.reply_text(
-        "Chào mừng! Tôi là bot phân tích kỹ thuật của anh Hưng Thạnh đẹp trai.\n"
+        "Chào mừng! Tôi là bot hỗ trợ cảnh báo tín hiệu mua/bán tiền mã hóa.\n"
         "Dưới đây là các lệnh bạn có thể sử dụng:\n"
         "Gõ /chart <mã giao dịch> để xem biểu đồ kỹ thuật (ví dụ: /chart BTC/USDT).\n"
         "Gõ /top để xem top 10 cặp giao dịch tăng, giảm mạnh nhất 24 giờ qua.\n"
         "Gõ /signal <mã giao dịch> để xem lịch sử tín hiệu mua bán trong 7 ngày qua.\n"
-        "Gõ /smarttrade <mã giao dịch> để xem thông tin và tín hiệu mua bán mới nhát.\n"
+        "Gõ /smarttrade <mã giao dịch> để xem thông tin và tín hiệu mua bán mới nhất.\n"
         "Gõ /list để xem top 10 cặp giao dịch có tín hiệu mua bán gần đây."
     )
 
@@ -238,7 +238,7 @@ async def chart(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             return
 
         timeframe = '1h'
-        limit = 200
+        limit = 8760
 
         markets = exchange.load_markets()
         if symbol not in markets:
@@ -254,17 +254,14 @@ async def chart(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             .dt.tz_convert(vietnam_tz)
         )
 
-
         # Tính toán các chỉ báo kỹ thuật
         df['MA50'] = df['close'].rolling(window=50).mean()
         df['MA100'] = df['close'].rolling(window=100).mean()
 
-
         # Bollinger Bands
         df['BB_Middle'] = df['close'].rolling(window=20).mean()
         df['BB_Upper'] = df['BB_Middle'] + 2 * df['close'].rolling(window=20).std()
-        df['BB_Lower'] = df['BB_Middle'] - df['close'].rolling(window=20).std()
-
+        df['BB_Lower'] = df['BB_Middle'] - 2 * df['close'].rolling(window=20).std()
 
         # MACD
         df['EMA12'] = df['close'].ewm(span=12).mean()
@@ -273,7 +270,6 @@ async def chart(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         df['Signal'] = df['MACD'].ewm(span=9).mean()
         df['MACD_Hist'] = df['MACD'] - df['Signal']
 
-
         # RSI
         delta = df['close'].diff()
         gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
@@ -281,8 +277,7 @@ async def chart(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         rs = gain / loss
         df['RSI'] = 100 - (100 / (1 + rs))
 
-
-       # Biểu đồ Candlestick và MACD được đặt riêng biệt
+        # Biểu đồ Candlestick và MACD được đặt riêng biệt
         fig = make_subplots(
             rows=4,  # Tăng số lượng hàng lên 4 để tách MACD khỏi biểu đồ giá
             cols=1,
@@ -324,6 +319,23 @@ async def chart(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             mode='lines',
             line=dict(color='green', width=1),
             name='BB Lower'
+        ), row=1, col=1, secondary_y=False)
+
+        # Thêm các đường MA50 và MA100
+        fig.add_trace(go.Scatter(
+            x=df['timestamp'],
+            y=df['MA50'],
+            mode='lines',
+            line=dict(color='orange', width=1.5),
+            name='MA50'
+        ), row=1, col=1, secondary_y=False)
+
+        fig.add_trace(go.Scatter(
+            x=df['timestamp'],
+            y=df['MA100'],
+            mode='lines',
+            line=dict(color='purple', width=1.5),
+            name='MA100'
         ), row=1, col=1, secondary_y=False)
 
         # Biểu đồ khối lượng bên trục y2, cùng màu với giá
@@ -389,18 +401,15 @@ async def chart(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
         # Layout
         fig.update_layout(
-            title=f"{symbol} Technical Analysis Chart (1H)",
+            title=f"BIỂU ĐỒ PHÂN TÍCH KỸ THUẬT (1H) CỦA {symbol}",
             template="plotly_dark",
             height=1200,  # Tăng chiều cao biểu đồ tổng thể
             xaxis_rangeslider_visible=False
         )
 
-
-
         # Lưu biểu đồ thành HTML
         temp_file = f"{symbol.replace('/', '_')}_chart.html"
         fig.write_html(temp_file)
-
 
         # Gửi file HTML qua Telegram
         if update.callback_query:
@@ -410,7 +419,6 @@ async def chart(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             with open(temp_file, 'rb') as html_file:
                 await update.message.reply_document(document=html_file, filename=temp_file)
 
-
         # Xóa file tạm
         os.remove(temp_file)
     except Exception as e:
@@ -418,6 +426,7 @@ async def chart(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             await update.callback_query.message.reply_text(f"Đã xảy ra lỗi: {e}")
         else:
             await update.message.reply_text(f"Đã xảy ra lỗi: {e}")
+
 
 
 async def top(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -544,13 +553,13 @@ async def list_signals(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
         # Tạo danh sách nút tương tác cho tín hiệu mua
         buy_keyboard = [
-            [InlineKeyboardButton(f"{symbol}: Mua ({price:.2f} {unit})", callback_data=symbol)]
+            [InlineKeyboardButton(f"{symbol}: Mua ({price:.8f} {unit})", callback_data=symbol)]
             for symbol, price, _, unit in top_buy_signals
         ]
 
         # Tạo danh sách nút tương tác cho tín hiệu bán
         sell_keyboard = [
-            [InlineKeyboardButton(f"{symbol}: Bán ({price:.2f} {unit})", callback_data=symbol)]
+            [InlineKeyboardButton(f"{symbol}: Bán ({price:.8f} {unit})", callback_data=symbol)]
             for symbol, price, _, unit in top_sell_signals
         ]
 
@@ -705,9 +714,6 @@ async def signal(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     except Exception as e:
         await update.message.reply_text(f"Đã xảy ra lỗi: {e}")
-
-
-
 
 
 async def set_webhook(application: Application):
