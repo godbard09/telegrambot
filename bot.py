@@ -147,6 +147,34 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
                 "timestamp": last_row['timestamp']
             }
 
+        # Nếu dòng cuối không có tín hiệu, duyệt qua các dòng khác để tìm tín hiệu gần nhất
+        if not recent_buy_signal or not recent_signal:
+            for _, row in df.iterrows():
+                if row['timestamp'] < last_row['timestamp']:  # Chỉ xét các dòng trước dòng cuối
+                    if row['close'] > row['MA50'] and row['MACD'] > row['Signal'] and row['RSI'] < 30:
+                        recent_buy_signal = {
+                            "price": row['close'],
+                            "timestamp": row['timestamp']
+                        }
+                    elif row['close'] <= row['BB_Lower']:
+                        recent_buy_signal = {
+                            "price": row['close'],
+                            "timestamp": row['timestamp']
+                        }
+
+                    if row['close'] < row['MA50'] and row['MACD'] < row['Signal'] and row['RSI'] > 70:
+                        recent_signal = {
+                            "type": "BÁN",
+                            "price": row['close'],
+                            "timestamp": row['timestamp']
+                        }
+                    elif row['close'] >= row['BB_Upper']:
+                        recent_signal = {
+                            "type": "BÁN",
+                            "price": row['close'],
+                            "timestamp": row['timestamp']
+                        }
+
         position_info = "Không có tín hiệu mua/bán trong 7 ngày qua."
         if recent_signal:  # Nếu có tín hiệu bán gần nhất
             if recent_signal['type'] == 'BÁN':
@@ -225,8 +253,6 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
     except Exception as e:
         await update.message.reply_text(f"Đã xảy ra lỗi: {e}")
-
-
 
 async def chart(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Tạo và gửi biểu đồ kỹ thuật."""
