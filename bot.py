@@ -80,7 +80,7 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         )
 
         timeframe = '6h'
-        limit = 500
+        limit = 10000
         ohlcv = exchange.fetch_ohlcv(symbol, timeframe, limit=limit)
         df = pd.DataFrame(ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
         df['timestamp'] = (
