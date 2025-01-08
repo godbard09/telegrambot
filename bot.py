@@ -129,8 +129,26 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
                     "price": row['close'],
                     "timestamp": row['timestamp']
                 }
+                recent_signal = {
+                    "type": "MUA",
+                    "price": row['close'],
+                    "timestamp": row['timestamp']
+                }
+                break
 
-            if row['close'] < row['MA50'] and row['MACD'] < row['Signal'] and row['RSI'] > 70:
+            elif row['close'] <= row['BB_Lower']:
+                last_buy_signal = {
+                    "price": row['close'],
+                    "timestamp": row['timestamp']
+                }
+                recent_signal = {
+                    "type": "MUA",
+                    "price": row['close'],
+                    "timestamp": row['timestamp']
+                }
+                break
+
+            elif row['close'] < row['MA50'] and row['MACD'] < row['Signal'] and row['RSI'] > 70:
                 recent_signal = {
                     "type": "BÁN",
                     "price": row['close'],
@@ -147,17 +165,6 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
                     "buy_signal": last_buy_signal
                 }
                 break
-
-            elif row['close'] <= row['BB_Lower']:
-                last_buy_signal = {
-                    "price": row['close'],
-                    "timestamp": row['timestamp']
-                }
-                recent_signal = {
-                    "type": "MUA",
-                    "price": row['close'],
-                    "timestamp": row['timestamp']
-                }
 
         position_info = "Không có tín hiệu mua/bán trong 7 ngày qua."
         if recent_signal:
