@@ -94,6 +94,7 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
             return
 
         df['MA50'] = df['close'].rolling(window=50).mean()
+        df['MA100'] = df['close'].rolling(window=100).mean()
         df['EMA12'] = df['close'].ewm(span=12).mean()
         df['EMA26'] = df['close'].ewm(span=26).mean()
         df['MACD'] = df['EMA12'] - df['EMA26']
@@ -106,6 +107,17 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         df['BB_Middle'] = df['close'].rolling(window=20).mean()
         df['BB_Upper'] = df['BB_Middle'] + 2 * df['close'].rolling(window=20).std()
         df['BB_Lower'] = df['BB_Middle'] - 2 * df['close'].rolling(window=20).std()
+
+        trend = "Không xác định"
+        if len(df) > 1:
+            last_row = df.iloc[-1]
+            prev_row = df.iloc[-2]
+            if last_row['close'] > last_row['MA50'] and last_row['close'] > last_row['MA100'] and last_row['MA50'] > prev_row['MA50']:
+                trend = "TĂNG"
+            elif last_row['close'] < last_row['MA50'] and last_row['close'] < last_row['MA100'] and last_row['MA50'] < prev_row['MA50']:
+                trend = "GIẢM"
+            else:
+                trend = "ĐI NGANG"
 
         recent_signal = None
         last_buy_signal = None
