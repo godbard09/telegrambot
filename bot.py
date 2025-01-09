@@ -89,6 +89,10 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
             .dt.tz_convert(vietnam_tz)
         )
 
+        if len(df) < 100:
+            await update.message.reply_text("Không đủ dữ liệu để tính toán chỉ báo kỹ thuật. Vui lòng thử lại sau.")
+            return
+
         df['MA50'] = df['close'].rolling(window=50).mean()
         df['EMA12'] = df['close'].ewm(span=12).mean()
         df['EMA26'] = df['close'].ewm(span=26).mean()
@@ -99,46 +103,56 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
         rs = gain / loss
         df['RSI'] = 100 - (100 / (1 + rs))
+        df['BB_Middle'] = df['close'].rolling(window=20).mean()
+        df['BB_Upper'] = df['BB_Middle'] + 2 * df['close'].rolling(window=20).std()
+        df['BB_Lower'] = df['BB_Middle'] - 2 * df['close'].rolling(window=20).std()
 
-        last_buy_signal = None
         recent_signal = None
+        last_buy_signal = None
+        now = pd.Timestamp.now(tz=vietnam_tz)
 
         for _, row in df[::-1].iterrows():
-            if not recent_signal:
-                if row['close'] > row['MA50'] and row['MACD'] > row['Signal'] and row['RSI'] < 30:
-                    last_buy_signal = {
-                        "price": row['close'],
-                        "timestamp": row['timestamp']
-                    }
-                    recent_signal = {
-                        "type": "MUA",
-                        "price": row['close'],
-                        "timestamp": row['timestamp']
-                    }
-                elif row['close'] <= row['BB_Lower']:
-                    last_buy_signal = {
-                        "price": row['close'],
-                        "timestamp": row['timestamp']
-                    }
-                    recent_signal = {
-                        "type": "MUA",
-                        "price": row['close'],
-                        "timestamp": row['timestamp']
-                    }
-                elif row['close'] < row['MA50'] and row['MACD'] < row['Signal'] and row['RSI'] > 70:
-                    recent_signal = {
-                        "type": "BÁN",
-                        "price": row['close'],
-                        "timestamp": row['timestamp'],
-                        "buy_signal": last_buy_signal
-                    }
-                elif row['close'] >= row['BB_Upper']:
-                    recent_signal = {
-                        "type": "BÁN",
-                        "price": row['close'],
-                        "timestamp": row['timestamp'],
-                        "buy_signal": last_buy_signal
-                    }
+            if row['close'] > row['MA50'] and row['MACD'] > row['Signal'] and row['RSI'] < 30:
+                last_buy_signal = {
+                    "price": row['close'],
+                    "timestamp": row['timestamp']
+                }
+                recent_signal = {
+                    "type": "MUA",
+                    "price": row['close'],
+                    "timestamp": row['timestamp']
+                }
+                break
+
+            elif row['close'] <= row['BB_Lower']:
+                last_buy_signal = {
+                    "price": row['close'],
+                    "timestamp": row['timestamp']
+                }
+                recent_signal = {
+                    "type": "MUA",
+                    "price": row['close'],
+                    "timestamp": row['timestamp']
+                }
+                break
+
+            elif row['close'] < row['MA50'] and row['MACD'] < row['Signal'] and row['RSI'] > 70:
+                recent_signal = {
+                    "type": "BÁN",
+                    "price": row['close'],
+                    "timestamp": row['timestamp'],
+                    "buy_signal": last_buy_signal
+                }
+                break
+
+            elif row['close'] >= row['BB_Upper']:
+                recent_signal = {
+                    "type": "BÁN",
+                    "price": row['close'],
+                    "timestamp": row['timestamp'],
+                    "buy_signal": last_buy_signal
+                }
+                break
 
         position_info = "Không có tín hiệu mua/bán trong 7 ngày qua."
         if recent_signal:
@@ -150,7 +164,7 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
                     f"{profit_loss:.2f}% 🟡"
                 )
                 position_info = (
-                    f"- Xu hướng: **TĂNG**\n"
+                    f"- Xu hướng: **{trend}**\n"
                     f"- Vị thế hiện tại: **MUA**\n"
                     f"- Ngày mua: {recent_signal['timestamp'].strftime('%Y-%m-%d %H:%M:%S')}\n"
                     f"- Giá mua: {recent_signal['price']:.2f} {quote_currency}\n"
@@ -166,7 +180,7 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
                         f"{profit_loss:.2f}% 🟡"
                     )
                     position_info = (
-                        f"- Xu hướng: **GIẢM**\n"
+                        f"- Xu hướng: **{trend}**\n"
                         f"- Vị thế hiện tại: **BÁN**\n"
                         f"- Ngày mua: {buy_signal['timestamp'].strftime('%Y-%m-%d %H:%M:%S')}\n"
                         f"- Giá mua: {buy_signal['price']:.2f} {quote_currency}\n"
@@ -176,7 +190,7 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
                     )
                 else:
                     position_info = (
-                        f"- Xu hướng: **GIẢM**\n"
+                        f"- Xu hướng: **{trend}**\n"
                         f"- Vị thế hiện tại: **BÁN**\n"
                         f"- Ngày bán: {recent_signal['timestamp'].strftime('%Y-%m-%d %H:%M:%S')}\n"
                         f"- Giá bán: {recent_signal['price']:.2f} {quote_currency}\n"
@@ -196,7 +210,6 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
     except Exception as e:
         await update.message.reply_text(f"Đã xảy ra lỗi: {e}")
-
 
 
 
