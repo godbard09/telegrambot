@@ -138,6 +138,7 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
                 break
 
             elif row['close'] < row['MA50'] and row['MACD'] < row['Signal'] and row['RSI'] > 70:
+                # Find the nearest MUA signal before this BÁN signal
                 for _, buy_row in df[::-1].iterrows():
                     if buy_row['timestamp'] < row['timestamp']:
                         if buy_row['close'] > buy_row['MA50'] and buy_row['MACD'] > buy_row['Signal'] and buy_row['RSI'] < 30:
@@ -161,6 +162,7 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
                 break
 
             elif row['close'] >= row['BB_Upper']:
+                # Find the nearest MUA signal before this BÁN signal
                 for _, buy_row in df[::-1].iterrows():
                     if buy_row['timestamp'] < row['timestamp']:
                         if buy_row['close'] > buy_row['MA50'] and buy_row['MACD'] > buy_row['Signal'] and buy_row['RSI'] < 30:
@@ -239,6 +241,7 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
     except Exception as e:
         await update.message.reply_text(f"Đã xảy ra lỗi: {e}")
+
 
 
 async def chart(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
