@@ -179,6 +179,9 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
                             f"- Lãi/Lỗ: {profit_loss:.2f}%"
                         )
 
+        except Exception as signal_error:
+            position_info = f"Không thể tính toán vị thế: {signal_error}"
+
         message = escape_markdown(
             f"Thông tin giá hiện tại cho {symbol}:\n"
             f"- Giá hiện tại: {current_price:.2f} {quote_currency}\n"
