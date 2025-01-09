@@ -146,11 +146,26 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
                         "buy_signal": last_buy_signal
                     }
                 else:
+                    # Tìm tín hiệu MUA gần nhất trước đó
+                    for _, buy_row in df[::-1].iterrows():
+                        if buy_row['timestamp'] < row['timestamp']:
+                            if buy_row['close'] > buy_row['MA50'] and buy_row['MACD'] > buy_row['Signal'] and buy_row['RSI'] < 30:
+                                last_buy_signal = {
+                                    "price": buy_row['close'],
+                                    "timestamp": buy_row['timestamp']
+                                }
+                                break
+                            elif buy_row['close'] <= buy_row['BB_Lower']:
+                                last_buy_signal = {
+                                    "price": buy_row['close'],
+                                    "timestamp": buy_row['timestamp']
+                                }
+                                break
                     recent_signal = {
                         "type": "BÁN",
                         "price": row['close'],
                         "timestamp": row['timestamp'],
-                        "buy_signal": None
+                        "buy_signal": last_buy_signal
                     }
                 break
 
@@ -163,11 +178,26 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
                         "buy_signal": last_buy_signal
                     }
                 else:
+                    # Tìm tín hiệu MUA gần nhất trước đó
+                    for _, buy_row in df[::-1].iterrows():
+                        if buy_row['timestamp'] < row['timestamp']:
+                            if buy_row['close'] > buy_row['MA50'] and buy_row['MACD'] > buy_row['Signal'] and buy_row['RSI'] < 30:
+                                last_buy_signal = {
+                                    "price": buy_row['close'],
+                                    "timestamp": buy_row['timestamp']
+                                }
+                                break
+                            elif buy_row['close'] <= buy_row['BB_Lower']:
+                                last_buy_signal = {
+                                    "price": buy_row['close'],
+                                    "timestamp": buy_row['timestamp']
+                                }
+                                break
                     recent_signal = {
                         "type": "BÁN",
                         "price": row['close'],
                         "timestamp": row['timestamp'],
-                        "buy_signal": None
+                        "buy_signal": last_buy_signal
                     }
                 break
 
@@ -227,6 +257,7 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
     except Exception as e:
         await update.message.reply_text(f"Đã xảy ra lỗi: {e}")
+
 
 
 
