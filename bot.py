@@ -79,7 +79,7 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
             .strftime('%Y-%m-%d %H:%M:%S')
         )
 
-        timeframe = '8h'
+        timeframe = '6h'
         limit = 500
         ohlcv = exchange.fetch_ohlcv(symbol, timeframe, limit=limit)
         df = pd.DataFrame(ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
@@ -243,6 +243,7 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
     except Exception as e:
         await update.message.reply_text(f"Đã xảy ra lỗi: {e}")
+
 
 
 async def chart(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
