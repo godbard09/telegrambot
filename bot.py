@@ -54,6 +54,7 @@ def escape_markdown(text: str, ignore: list = None) -> str:
     return re.sub(f"([{re.escape(escape_chars)}])", r"\\\1", text)
 
 
+
 async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     try:
         symbol = context.args[0] if context.args else None
@@ -106,7 +107,7 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         df['RSI'] = 100 - (100 / (1 + rs))
         df['BB_Middle'] = df['close'].rolling(window=20).mean()
         df['BB_Upper'] = df['BB_Middle'] + 2 * df['close'].rolling(window=20).std()
-        df['BB_Lower'] = df['BB_Middle'] - df['close'].rolling(window=20).std()
+        df['BB_Lower'] = df['BB_Middle'] - 2 * df['close'].rolling(window=20).std()
 
         trend = "Không xác định"
         if len(df) > 1:
@@ -123,7 +124,8 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         last_buy_signal = None
         now = pd.Timestamp.now(tz=vietnam_tz)
 
-        for _, row in df[::-1].iterrows():
+        for i in range(len(df) - 1, -1, -1):
+            row = df.iloc[i]
             if row['close'] > row['MA50'] and row['MACD'] > row['Signal'] and row['RSI'] < 30:
                 last_buy_signal = {
                     "price": row['close'],
@@ -135,7 +137,6 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
                     "timestamp": row['timestamp']
                 }
                 break
-
             elif row['close'] <= row['BB_Lower']:
                 last_buy_signal = {
                     "price": row['close'],
@@ -148,7 +149,9 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
                 }
                 break
 
-            elif row['close'] < row['MA50'] and row['MACD'] < row['Signal'] and row['RSI'] > 70:
+        for i in range(len(df) - 1, -1, -1):
+            row = df.iloc[i]
+            if row['close'] < row['MA50'] and row['MACD'] < row['Signal'] and row['RSI'] > 70:
                 recent_signal = {
                     "type": "BÁN",
                     "price": row['close'],
@@ -156,7 +159,6 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
                     "buy_signal": last_buy_signal
                 }
                 break
-
             elif row['close'] >= row['BB_Upper']:
                 recent_signal = {
                     "type": "BÁN",
