@@ -38,169 +38,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 vietnam_tz = pytz.timezone('Asia/Ho_Chi_Minh')
 
 
-def escape_markdown(text: str, ignore: list = None) -> str:
-    """
-    Thoát các ký tự đặc biệt cho Markdown v2.
-    Các ký tự trong danh sách `ignore` sẽ không bị thoát.
-    """
-    if ignore is None:
-        ignore = []
-    # Các ký tự Markdown cần thoát
-    escape_chars = r"_*[]()~`>#+-=|{}.!"
-    # Loại bỏ các ký tự trong danh sách ignore
-    for char in ignore:
-        escape_chars = escape_chars.replace(char, "")
-    # Thay thế các ký tự cần thoát bằng cách thêm dấu '\'
-    return re.sub(f"([{re.escape(escape_chars)}])", r"\\\1", text)
-
-
-async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    try:
-        symbol = context.args[0] if context.args else None
-        if not symbol:
-            await update.message.reply_text("Vui lòng cung cấp mã giao dịch. Ví dụ: /smarttrade BTC/USDT")
-            return
-
-        markets = exchange.load_markets()
-        if symbol not in markets:
-            await update.message.reply_text(f"Mã giao dịch không hợp lệ: {symbol}. Vui lòng kiểm tra lại.")
-            return
-
-        quote_currency = symbol.split('/')[1]
-        ticker = exchange.fetch_ticker(symbol)
-        current_price = ticker['last']
-        percentage_change = ticker['percentage']
-        volume_24h = ticker.get('quoteVolume', 0)
-
-        timestamp = (
-            pd.to_datetime(ticker['timestamp'], unit='ms')
-            .tz_localize('UTC')
-            .tz_convert(vietnam_tz)
-            .strftime('%Y-%m-%d %H:%M:%S')
-        )
-
-        # Lấy tín hiệu gần nhất từ async def signal
-        signals_now, signals_past = [], []  # Để lưu tín hiệu hiện tại và trong 7 ngày qua
-        try:
-            timeframe = '6h'
-            limit = 500
-
-            ohlcv = exchange.fetch_ohlcv(symbol, timeframe, limit=limit)
-            df = pd.DataFrame(ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
-            df['timestamp'] = (
-                pd.to_datetime(df['timestamp'], unit='ms')
-                .dt.tz_localize('UTC')
-                .dt.tz_convert(vietnam_tz)
-            )
-
-            df['MA50'] = df['close'].rolling(window=50).mean()
-            df['EMA12'] = df['close'].ewm(span=12).mean()
-            df['EMA26'] = df['close'].ewm(span=26).mean()
-            df['MACD'] = df['EMA12'] - df['EMA26']
-            df['Signal'] = df['MACD'].ewm(span=9).mean()
-            delta = df['close'].diff()
-            gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
-            loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
-            rs = gain / loss
-            df['RSI'] = 100 - (100 / (1 + rs))
-            df['BB_Middle'] = df['close'].rolling(window=20).mean()
-            df['BB_Upper'] = df['BB_Middle'] + 2 * df['close'].rolling(window=20).std()
-            df['BB_Lower'] = df['BB_Middle'] - 2 * df['close'].rolling(window=20).std()
-
-            last_buy_signal = None
-            recent_signal = None
-
-            # Xác định tín hiệu gần nhất
-            for _, row in df[::-1].iterrows():
-                if row['close'] > row['MA50'] and row['MACD'] > row['Signal'] and row['RSI'] < 30:
-                    last_buy_signal = {
-                        "price": row['close'],
-                        "timestamp": row['timestamp']
-                    }
-                    recent_signal = {
-                        "type": "MUA",
-                        "price": row['close'],
-                        "timestamp": row['timestamp']
-                    }
-                    break
-                elif row['close'] <= row['BB_Lower']:
-                    last_buy_signal = {
-                        "price": row['close'],
-                        "timestamp": row['timestamp']
-                    }
-                    recent_signal = {
-                        "type": "MUA",
-                        "price": row['close'],
-                        "timestamp": row['timestamp']
-                    }
-                    break
-                elif row['close'] < row['MA50'] and row['MACD'] < row['Signal'] and row['RSI'] > 70:
-                    if last_buy_signal:
-                        recent_signal = {
-                            "type": "BÁN",
-                            "price": row['close'],
-                            "timestamp": row['timestamp'],
-                            "buy_signal": last_buy_signal
-                        }
-                    break
-                elif row['close'] >= row['BB_Upper']:
-                    if last_buy_signal:
-                        recent_signal = {
-                            "type": "BÁN",
-                            "price": row['close'],
-                            "timestamp": row['timestamp'],
-                            "buy_signal": last_buy_signal
-                        }
-                    break
-
-            # Hiển thị thông tin vị thế
-            position_info = "Không có tín hiệu mua/bán trong 7 ngày qua."
-            if recent_signal:
-                if recent_signal['type'] == "MUA":
-                    profit_loss = ((current_price - recent_signal['price']) / recent_signal['price']) * 100
-                    position_info = (
-                        f"- Xu hướng: **TĂNG**\n"
-                        f"- Vị thế hiện tại: **MUA**\n"
-                        f"- Ngày mua: {recent_signal['timestamp'].strftime('%Y-%m-%d %H:%M:%S')}\n"
-                        f"- Giá mua: {recent_signal['price']:.2f} {quote_currency}\n"
-                        f"- Lãi/Lỗ: {profit_loss:.2f}%"
-                    )
-                elif recent_signal['type'] == "BÁN":
-                    buy_signal = recent_signal.get('buy_signal')
-                    if buy_signal:
-                        profit_loss = ((recent_signal['price'] - buy_signal['price']) / buy_signal['price']) * 100
-                        position_info = (
-                            f"- Xu hướng: **GIẢM**\n"
-                            f"- Vị thế hiện tại: **BÁN**\n"
-                            f"- Ngày mua: {buy_signal['timestamp'].strftime('%Y-%m-%d %H:%M:%S')}\n"
-                            f"- Giá mua: {buy_signal['price']:.2f} {quote_currency}\n"
-                            f"- Ngày bán: {recent_signal['timestamp'].strftime('%Y-%m-%d %H:%M:%S')}\n"
-                            f"- Giá bán: {recent_signal['price']:.2f} {quote_currency}\n"
-                            f"- Lãi/Lỗ: {profit_loss:.2f}%"
-                        )
-
-        except Exception as signal_error:
-            position_info = f"Không thể tính toán vị thế: {signal_error}"
-
-        message = escape_markdown(
-            f"Thông tin giá hiện tại cho {symbol}:\n"
-            f"- Giá hiện tại: {current_price:.2f} {quote_currency}\n"
-            f"- Biến động trong 24 giờ qua: {percentage_change:.2f}%\n"
-            f"- Khối lượng giao dịch trong 24 giờ qua: {volume_24h:.2f} {quote_currency}\n"
-            f"- Thời gian cập nhật: {timestamp}\n\n"
-            f"Thông tin vị thế:\n{position_info}",
-            ignore=["*"]
-        )
-        await update.message.reply_text(message, parse_mode="MarkdownV2")
-
-    except Exception as e:
-        await update.message.reply_text(f"Đã xảy ra lỗi: {e}")
-
-
-
-
-
-
 async def chart(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Tạo và gửi biểu đồ kỹ thuật."""
     try:
@@ -687,6 +524,161 @@ async def signal(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     except Exception as e:
         await update.message.reply_text(f"Đã xảy ra lỗi: {e}")
 
+def escape_markdown(text: str, ignore: list = None) -> str:
+    """
+    Thoát các ký tự đặc biệt cho Markdown v2.
+    Các ký tự trong danh sách `ignore` sẽ không bị thoát.
+    """
+    if ignore is None:
+        ignore = []
+    # Các ký tự Markdown cần thoát
+    escape_chars = r"_*[]()~`>#+-=|{}.!"
+    # Loại bỏ các ký tự trong danh sách ignore
+    for char in ignore:
+        escape_chars = escape_chars.replace(char, "")
+    # Thay thế các ký tự cần thoát bằng cách thêm dấu '\'
+    return re.sub(f"([{re.escape(escape_chars)}])", r"\\\1", text)
+
+
+async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    try:
+        symbol = context.args[0] if context.args else None
+        if not symbol:
+            await update.message.reply_text("Vui lòng cung cấp mã giao dịch. Ví dụ: /smarttrade BTC/USDT")
+            return
+
+        markets = exchange.load_markets()
+        if symbol not in markets:
+            await update.message.reply_text(f"Mã giao dịch không hợp lệ: {symbol}. Vui lòng kiểm tra lại.")
+            return
+
+        quote_currency = symbol.split('/')[1]
+        ticker = exchange.fetch_ticker(symbol)
+        current_price = ticker['last']
+        percentage_change = ticker['percentage']
+        volume_24h = ticker.get('quoteVolume', 0)
+
+        timestamp = (
+            pd.to_datetime(ticker['timestamp'], unit='ms')
+            .tz_localize('UTC')
+            .tz_convert(vietnam_tz)
+            .strftime('%Y-%m-%d %H:%M:%S')
+        )
+
+        # Lấy tín hiệu gần nhất từ dữ liệu kỹ thuật
+        try:
+            timeframe = '6h'
+            limit = 500
+
+            ohlcv = exchange.fetch_ohlcv(symbol, timeframe, limit=limit)
+            df = pd.DataFrame(ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
+            df['timestamp'] = (
+                pd.to_datetime(df['timestamp'], unit='ms')
+                .dt.tz_localize('UTC')
+                .dt.tz_convert(vietnam_tz)
+            )
+
+            df['MA50'] = df['close'].rolling(window=50).mean()
+            df['EMA12'] = df['close'].ewm(span=12).mean()
+            df['EMA26'] = df['close'].ewm(span=26).mean()
+            df['MACD'] = df['EMA12'] - df['EMA26']
+            df['Signal'] = df['MACD'].ewm(span=9).mean()
+            delta = df['close'].diff()
+            gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
+            loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
+            rs = gain / loss
+            df['RSI'] = 100 - (100 / (1 + rs))
+            df['BB_Middle'] = df['close'].rolling(window=20).mean()
+            df['BB_Upper'] = df['BB_Middle'] + 2 * df['close'].rolling(window=20).std()
+            df['BB_Lower'] = df['BB_Middle'] - 2 * df['close'].rolling(window=20).std()
+
+            last_buy_signal = None
+            recent_signal = None
+
+            for _, row in df[::-1].iterrows():
+                if row['close'] > row['MA50'] and row['MACD'] > row['Signal'] and row['RSI'] < 30:
+                    last_buy_signal = {
+                        "price": row['close'],
+                        "timestamp": row['timestamp']
+                    }
+                    recent_signal = {
+                        "type": "MUA",
+                        "price": row['close'],
+                        "timestamp": row['timestamp']
+                    }
+                    break
+                elif row['close'] <= row['BB_Lower']:
+                    last_buy_signal = {
+                        "price": row['close'],
+                        "timestamp": row['timestamp']
+                    }
+                    recent_signal = {
+                        "type": "MUA",
+                        "price": row['close'],
+                        "timestamp": row['timestamp']
+                    }
+                    break
+                elif row['close'] < row['MA50'] and row['MACD'] < row['Signal'] and row['RSI'] > 70:
+                    if last_buy_signal:
+                        recent_signal = {
+                            "type": "BÁN",
+                            "price": row['close'],
+                            "timestamp": row['timestamp'],
+                            "buy_signal": last_buy_signal
+                        }
+                    break
+                elif row['close'] >= row['BB_Upper']:
+                    if last_buy_signal:
+                        recent_signal = {
+                            "type": "BÁN",
+                            "price": row['close'],
+                            "timestamp": row['timestamp'],
+                            "buy_signal": last_buy_signal
+                        }
+                    break
+
+            # Hiển thị thông tin vị thế
+            position_info = "Không có tín hiệu mua/bán trong 7 ngày qua."
+            if recent_signal:
+                if recent_signal['type'] == "MUA":
+                    profit_loss = ((current_price - recent_signal['price']) / recent_signal['price']) * 100
+                    position_info = (
+                        f"- Xu hướng: **TĂNG**\n"
+                        f"- Vị thế hiện tại: **MUA**\n"
+                        f"- Ngày mua: {recent_signal['timestamp'].strftime('%Y-%m-%d %H:%M:%S')}\n"
+                        f"- Giá mua: {recent_signal['price']:.2f} {quote_currency}\n"
+                        f"- Lãi/Lỗ: {profit_loss:.2f}%"
+                    )
+                elif recent_signal['type'] == "BÁN":
+                    buy_signal = recent_signal.get('buy_signal')
+                    if buy_signal:
+                        profit_loss = ((recent_signal['price'] - buy_signal['price']) / buy_signal['price']) * 100
+                        position_info = (
+                            f"- Xu hướng: **GIẢM**\n"
+                            f"- Vị thế hiện tại: **BÁN**\n"
+                            f"- Ngày mua: {buy_signal['timestamp'].strftime('%Y-%m-%d %H:%M:%S')}\n"
+                            f"- Giá mua: {buy_signal['price']:.2f} {quote_currency}\n"
+                            f"- Ngày bán: {recent_signal['timestamp'].strftime('%Y-%m-%d %H:%M:%S')}\n"
+                            f"- Giá bán: {recent_signal['price']:.2f} {quote_currency}\n"
+                            f"- Lãi/Lỗ: {profit_loss:.2f}%"
+                        )
+
+        except Exception as signal_error:
+            position_info = f"Không thể tính toán vị thế: {signal_error}"
+
+        message = escape_markdown(
+            f"Thông tin giá hiện tại cho {symbol}:\n"
+            f"- Giá hiện tại: {current_price:.2f} {quote_currency}\n"
+            f"- Biến động trong 24 giờ qua: {percentage_change:.2f}%\n"
+            f"- Khối lượng giao dịch trong 24 giờ qua: {volume_24h:.2f} {quote_currency}\n"
+            f"- Thời gian cập nhật: {timestamp}\n\n"
+            f"Thông tin vị thế:\n{position_info}",
+            ignore=["*"]
+        )
+        await update.message.reply_text(message, parse_mode="MarkdownV2")
+
+    except Exception as e:
+        await update.message.reply_text(f"Đã xảy ra lỗi: {e}")
 
 async def set_webhook(application: Application):
     """Thiết lập Webhook."""
