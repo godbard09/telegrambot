@@ -96,6 +96,7 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
         # Tính các chỉ báo kỹ thuật
         df['MA50'] = df['close'].rolling(window=50).mean()
+        df['MA100'] = df['close'].rolling(window=100).mean()
         df['EMA12'] = df['close'].ewm(span=12).mean()
         df['EMA26'] = df['close'].ewm(span=26).mean()
         df['MACD'] = df['EMA12'] - df['EMA26']
@@ -108,6 +109,18 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         df['BB_Middle'] = df['close'].rolling(window=20).mean()
         df['BB_Upper'] = df['BB_Middle'] + 2 * df['close'].rolling(window=20).std()
         df['BB_Lower'] = df['BB_Middle'] - 2 * df['close'].rolling(window=20).std()
+
+        # Xác định xu hướng
+        trend = "Không xác định"
+        if len(df) > 1:
+            last_row = df.iloc[-1]
+            prev_row = df.iloc[-2]
+            if last_row['close'] > last_row['MA50'] and last_row['close'] > last_row['MA100'] and last_row['MA50'] > prev_row['MA50']:
+                trend = "TĂNG"
+            elif last_row['close'] < last_row['MA50'] and last_row['close'] < last_row['MA100'] and last_row['MA50'] < prev_row['MA50']:
+                trend = "GIẢM"
+            else:
+                trend = "ĐI NGANG"
 
         # Xác định tín hiệu gần nhất
         recent_signal = None
@@ -168,7 +181,7 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
                     f"{profit_loss:.2f}% 🟡"
                 )
                 position_info = (
-                    f"- Xu hướng: **TĂNG**\n"
+                    f"- Xu hướng: **{trend}**\n"
                     f"- Vị thế hiện tại: **MUA**\n"
                     f"- Ngày mua: {recent_signal['timestamp'].strftime('%Y-%m-%d %H:%M:%S')}\n"
                     f"- Giá mua: {recent_signal['price']:.2f} {quote_currency}\n"
@@ -184,7 +197,7 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
                         f"{profit_loss:.2f}% 🟡"
                     )
                     position_info = (
-                        f"- Xu hướng: **GIẢM**\n"
+                        f"- Xu hướng: **{trend}**\n"
                         f"- Vị thế hiện tại: **BÁN**\n"
                         f"- Ngày mua: {buy_signal['timestamp'].strftime('%Y-%m-%d %H:%M:%S')}\n"
                         f"- Giá mua: {buy_signal['price']:.2f} {quote_currency}\n"
@@ -194,7 +207,7 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
                     )
                 else:
                     position_info = (
-                        f"- Xu hướng: **GIẢM**\n"
+                        f"- Xu hướng: **{trend}**\n"
                         f"- Vị thế hiện tại: **BÁN**\n"
                         f"- Ngày bán: {recent_signal['timestamp'].strftime('%Y-%m-%d %H:%M:%S')}\n"
                         f"- Giá bán: {recent_signal['price']:.2f} {quote_currency}\n"
@@ -214,6 +227,7 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
     except Exception as e:
         await update.message.reply_text(f"Đã xảy ra lỗi: {e}")
+
 
 
 
