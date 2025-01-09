@@ -148,7 +148,7 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
                 break
 
             elif row['close'] < row['MA50'] and row['MACD'] < row['Signal'] and row['RSI'] > 70:
-                if last_buy_signal:
+                if last_buy_signal and row['timestamp'] > last_buy_signal['timestamp']:
                     recent_signal = {
                         "type": "BÁN",
                         "price": row['close'],
@@ -158,7 +158,7 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
                 break
 
             elif row['close'] >= row['BB_Upper']:
-                if last_buy_signal:
+                if last_buy_signal and row['timestamp'] > last_buy_signal['timestamp']:
                     recent_signal = {
                         "type": "BÁN",
                         "price": row['close'],
@@ -223,6 +223,7 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
     except Exception as e:
         await update.message.reply_text(f"Đã xảy ra lỗi: {e}")
+
 
 
 
