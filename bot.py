@@ -96,7 +96,6 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
         # Tính các chỉ báo kỹ thuật
         df['MA50'] = df['close'].rolling(window=50).mean()
-        df['MA100'] = df['close'].rolling(window=100).mean()
         df['EMA12'] = df['close'].ewm(span=12).mean()
         df['EMA26'] = df['close'].ewm(span=26).mean()
         df['MACD'] = df['EMA12'] - df['EMA26']
@@ -127,47 +126,43 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         last_buy_signal = None
 
         for index, row in df[::-1].iterrows():
-            if row['close'] > row['MA50'] and row['MACD'] > row['Signal'] and row['RSI'] < 30:
+            if recent_signal is None and row['close'] > row['MA50'] and row['MACD'] > row['Signal'] and row['RSI'] < 30:
                 last_buy_signal = {
                     "price": row['close'],
                     "timestamp": row['timestamp']
                 }
-                if not recent_signal:
-                    recent_signal = {
-                        "type": "MUA",
-                        "price": row['close'],
-                        "timestamp": row['timestamp']
-                    }
+                recent_signal = {
+                    "type": "MUA",
+                    "price": row['close'],
+                    "timestamp": row['timestamp']
+                }
 
-            elif row['close'] <= row['BB_Lower']:
+            elif recent_signal is None and row['close'] <= row['BB_Lower']:
                 last_buy_signal = {
                     "price": row['close'],
                     "timestamp": row['timestamp']
                 }
-                if not recent_signal:
-                    recent_signal = {
-                        "type": "MUA",
-                        "price": row['close'],
-                        "timestamp": row['timestamp']
-                    }
+                recent_signal = {
+                    "type": "MUA",
+                    "price": row['close'],
+                    "timestamp": row['timestamp']
+                }
 
-            elif row['close'] < row['MA50'] and row['MACD'] < row['Signal'] and row['RSI'] > 70:
-                if not recent_signal:
-                    recent_signal = {
-                        "type": "BÁN",
-                        "price": row['close'],
-                        "timestamp": row['timestamp'],
-                        "buy_signal": last_buy_signal
-                    }
+            elif recent_signal is None and row['close'] < row['MA50'] and row['MACD'] < row['Signal'] and row['RSI'] > 70:
+                recent_signal = {
+                    "type": "BÁN",
+                    "price": row['close'],
+                    "timestamp": row['timestamp'],
+                    "buy_signal": last_buy_signal
+                }
 
-            elif row['close'] >= row['BB_Upper']:
-                if not recent_signal:
-                    recent_signal = {
-                        "type": "BÁN",
-                        "price": row['close'],
-                        "timestamp": row['timestamp'],
-                        "buy_signal": last_buy_signal
-                    }
+            elif recent_signal is None and row['close'] >= row['BB_Upper']:
+                recent_signal = {
+                    "type": "BÁN",
+                    "price": row['close'],
+                    "timestamp": row['timestamp'],
+                    "buy_signal": last_buy_signal
+                }
 
         # Hiển thị thông tin vị thế
         position_info = "Không có tín hiệu mua/bán trong 7 ngày qua."
