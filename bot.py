@@ -115,49 +115,30 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
             last_row = df.iloc[-1]
             prev_row = df.iloc[-2]
             if last_row['close'] > last_row['MA50'] and last_row['close'] > last_row['MA100'] and last_row['MA50'] > prev_row['MA50']:
-                trend = "TĂNG"
+                trend = "Tăng"
             elif last_row['close'] < last_row['MA50'] and last_row['close'] < last_row['MA100'] and last_row['MA50'] < prev_row['MA50']:
-                trend = "GIẢM"
+                trend = "Giảm"
             else:
-                trend = "ĐI NGANG"
+                trend = "Đi ngang"
 
         recent_signal = None
         last_buy_signal = None
 
-        # Tìm tín hiệu mới nhất (MUA hoặc BÁN)
-        for _, row in df[::-1].iterrows():
-            if row['close'] > row['MA50'] and row['MACD'] > row['Signal'] and row['RSI'] < 30:
-                # Tín hiệu MUA
-                recent_signal = {
-                    "type": "MUA",
-                    "price": row['close'],
-                    "timestamp": row['timestamp']
-                }
-                break
-            elif row['close'] <= row['BB_Lower']:
-                # Tín hiệu MUA
-                recent_signal = {
-                    "type": "MUA",
-                    "price": row['close'],
-                    "timestamp": row['timestamp']
-                }
-                break
-            elif row['close'] < row['MA50'] and row['MACD'] < row['Signal'] and row['RSI'] > 70:
-                # Tín hiệu BÁN
-                recent_signal = {
-                    "type": "BÁN",
-                    "price": row['close'],
-                    "timestamp": row['timestamp']
-                }
-                break
-            elif row['close'] >= row['BB_Upper']:
-                # Tín hiệu BÁN
-                recent_signal = {
-                    "type": "BÁN",
-                    "price": row['close'],
-                    "timestamp": row['timestamp']
-                }
-                break
+        # Tìm tín hiệu mới nhất (real-time)
+        if current_price > df['MA50'].iloc[-1] and current_price > df['MA100'].iloc[-1] and \
+           df['MACD'].iloc[-1] > df['Signal'].iloc[-1] and df['RSI'].iloc[-1] < 30:
+            recent_signal = {
+                "type": "MUA",
+                "price": current_price,
+                "timestamp": pd.Timestamp.now(tz=vietnam_tz)
+            }
+        elif current_price < df['MA50'].iloc[-1] and current_price < df['MA100'].iloc[-1] and \
+             df['MACD'].iloc[-1] < df['Signal'].iloc[-1] and df['RSI'].iloc[-1] > 70:
+            recent_signal = {
+                "type": "BÁN",
+                "price": current_price,
+                "timestamp": pd.Timestamp.now(tz=vietnam_tz)
+            }
 
         # Xử lý dựa trên tín hiệu mới nhất
         if recent_signal:
