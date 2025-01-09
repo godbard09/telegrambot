@@ -106,7 +106,7 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         df['RSI'] = 100 - (100 / (1 + rs))
         df['BB_Middle'] = df['close'].rolling(window=20).mean()
         df['BB_Upper'] = df['BB_Middle'] + 2 * df['close'].rolling(window=20).std()
-        df['BB_Lower'] = df['BB_Middle'] - df['close'].rolling(window=20).std()
+        df['BB_Lower'] = df['BB_Middle'] - 2 * df['close'].rolling(window=20).std()
 
         trend = "Không xác định"
         if len(df) > 1:
@@ -121,32 +121,19 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
         recent_signal = None
         last_buy_signal = None
-        now = pd.Timestamp.now(tz=vietnam_tz)
 
-        for _, row in df[::-1].iterrows():
+        for i, row in df[::-1].iterrows():
             if row['close'] > row['MA50'] and row['MACD'] > row['Signal'] and row['RSI'] < 30:
                 last_buy_signal = {
                     "price": row['close'],
                     "timestamp": row['timestamp']
                 }
-                recent_signal = {
-                    "type": "MUA",
-                    "price": row['close'],
-                    "timestamp": row['timestamp']
-                }
-                break
-
+            
             elif row['close'] <= row['BB_Lower']:
                 last_buy_signal = {
                     "price": row['close'],
                     "timestamp": row['timestamp']
                 }
-                recent_signal = {
-                    "type": "MUA",
-                    "price": row['close'],
-                    "timestamp": row['timestamp']
-                }
-                break
 
             elif row['close'] < row['MA50'] and row['MACD'] < row['Signal'] and row['RSI'] > 70:
                 recent_signal = {
@@ -168,21 +155,7 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
         position_info = "Không có tín hiệu mua/bán trong 7 ngày qua."
         if recent_signal:
-            if recent_signal['type'] == "MUA":
-                profit_loss = ((current_price - recent_signal['price']) / recent_signal['price']) * 100
-                profit_color = (
-                    f"{profit_loss:.2f}% 🟢" if profit_loss > 0 else
-                    f"{profit_loss:.2f}% 🔴" if profit_loss < 0 else
-                    f"{profit_loss:.2f}% 🟡"
-                )
-                position_info = (
-                    f"- Xu hướng: **{trend}**\n"
-                    f"- Vị thế hiện tại: **MUA**\n"
-                    f"- Ngày mua: {recent_signal['timestamp'].strftime('%Y-%m-%d %H:%M:%S')}\n"
-                    f"- Giá mua: {recent_signal['price']:.2f} {quote_currency}\n"
-                    f"- Lãi/Lỗ: {profit_color}"
-                )
-            elif recent_signal['type'] == "BÁN":
+            if recent_signal['type'] == "BÁN":
                 buy_signal = recent_signal.get('buy_signal')
                 if buy_signal:
                     profit_loss = ((recent_signal['price'] - buy_signal['price']) / buy_signal['price']) * 100
@@ -222,6 +195,7 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
     except Exception as e:
         await update.message.reply_text(f"Đã xảy ra lỗi: {e}")
+
 
 
 
