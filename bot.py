@@ -109,58 +109,54 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         df['BB_Lower'] = df['BB_Middle'] - 2 * df['close'].rolling(window=20).std()
 
         # Identify the most recent signal based on real-time data
+        now = pd.Timestamp.now(tz=vietnam_tz)
         recent_signal = None
         last_buy_signal = None
-        now = pd.Timestamp.now(tz=vietnam_tz)
 
-        for _, row in df[::-1].iterrows():
-            if row['timestamp'] <= now:
-                if row['close'] > row['MA50'] and row['MACD'] > row['Signal'] and row['RSI'] < 30:
-                    last_buy_signal = {
-                        "price": row['close'],
-                        "timestamp": row['timestamp']
-                    }
-                    recent_signal = {
-                        "type": "MUA",
-                        "price": row['close'],
-                        "timestamp": row['timestamp']
-                    }
-                    break
+        for _, row in df.iterrows():
+            if row['timestamp'] > now:
+                continue
 
-                elif row['close'] <= row['BB_Lower']:
-                    last_buy_signal = {
-                        "price": row['close'],
-                        "timestamp": row['timestamp']
-                    }
-                    recent_signal = {
-                        "type": "MUA",
-                        "price": row['close'],
-                        "timestamp": row['timestamp']
-                    }
-                    break
+            if row['close'] > row['MA50'] and row['MACD'] > row['Signal'] and row['RSI'] < 30:
+                recent_signal = {
+                    "type": "MUA",
+                    "price": row['close'],
+                    "timestamp": row['timestamp']
+                }
+                break
 
-                elif row['close'] < row['MA50'] and row['MACD'] < row['Signal'] and row['RSI'] > 70:
-                    for _, buy_row in df[::-1].iterrows():
-                        if buy_row['timestamp'] < row['timestamp']:
-                            if buy_row['close'] > buy_row['MA50'] and buy_row['MACD'] > buy_row['Signal'] and buy_row['RSI'] < 30:
-                                last_buy_signal = {
-                                    "price": buy_row['close'],
-                                    "timestamp": buy_row['timestamp']
-                                }
-                                break
-                            elif buy_row['close'] <= buy_row['BB_Lower']:
-                                last_buy_signal = {
-                                    "price": buy_row['close'],
-                                    "timestamp": buy_row['timestamp']
-                                }
-                                break
-                    recent_signal = {
-                        "type": "BÁN",
-                        "price": row['close'],
-                        "timestamp": row['timestamp'],
-                        "buy_signal": last_buy_signal
-                    }
-                    break
+            elif row['close'] <= row['BB_Lower']:
+                recent_signal = {
+                    "type": "MUA",
+                    "price": row['close'],
+                    "timestamp": row['timestamp']
+                }
+                break
+
+            elif row['close'] < row['MA50'] and row['MACD'] < row['Signal'] and row['RSI'] > 70:
+                for _, buy_row in df.iterrows():
+                    if buy_row['timestamp'] >= row['timestamp']:
+                        break
+                    if buy_row['close'] > buy_row['MA50'] and buy_row['MACD'] > buy_row['Signal'] and buy_row['RSI'] < 30:
+                        last_buy_signal = {
+                            "price": buy_row['close'],
+                            "timestamp": buy_row['timestamp']
+                        }
+                        break
+                    elif buy_row['close'] <= buy_row['BB_Lower']:
+                        last_buy_signal = {
+                            "price": buy_row['close'],
+                            "timestamp": buy_row['timestamp']
+                        }
+                        break
+
+                recent_signal = {
+                    "type": "BÁN",
+                    "price": row['close'],
+                    "timestamp": row['timestamp'],
+                    "buy_signal": last_buy_signal
+                }
+                break
 
         position_info = "Không có tín hiệu mua/bán trong 7 ngày qua."
         if recent_signal:
