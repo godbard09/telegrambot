@@ -109,6 +109,18 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         df['BB_Upper'] = df['BB_Middle'] + 2 * df['close'].rolling(window=20).std()
         df['BB_Lower'] = df['BB_Middle'] - 2 * df['close'].rolling(window=20).std()
 
+        # Xác định xu hướng
+        trend = "Không xác định"
+        if len(df) > 1:
+            last_row = df.iloc[-1]
+            prev_row = df.iloc[-2]
+            if last_row['close'] > last_row['MA50'] and last_row['close'] > last_row['MA100'] and last_row['MA50'] > prev_row['MA50']:
+                trend = "TĂNG"
+            elif last_row['close'] < last_row['MA50'] and last_row['close'] < last_row['MA100'] and last_row['MA50'] < prev_row['MA50']:
+                trend = "GIẢM"
+            else:
+                trend = "ĐI NGANG"
+
         recent_signal = None
         last_buy_signal = None
 
