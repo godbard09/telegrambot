@@ -513,7 +513,7 @@ async def list_signals(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         # Lấy danh sách mã giao dịch
         markets = exchange.load_markets()
         symbols = list(markets.keys())
-        timeframe = '8h'
+        timeframe = '6h'
         limit = 200
         buy_signals = []
         sell_signals = []
@@ -618,7 +618,7 @@ async def signal(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             await update.message.reply_text("Cặp giao dịch không hợp lệ. Vui lòng sử dụng định dạng như BTC/USDT.")
             return
 
-        timeframe = '8h'
+        timeframe = '6h'
         limit = 500
 
         markets = exchange.load_markets()
