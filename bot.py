@@ -94,7 +94,6 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
             await update.message.reply_text("Không đủ dữ liệu để tính toán chỉ báo kỹ thuật. Vui lòng thử lại sau.")
             return
 
-        # Tính các chỉ báo kỹ thuật
         df['MA50'] = df['close'].rolling(window=50).mean()
         df['MA100'] = df['close'].rolling(window=100).mean()
         df['EMA12'] = df['close'].ewm(span=12).mean()
@@ -110,65 +109,48 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         df['BB_Upper'] = df['BB_Middle'] + 2 * df['close'].rolling(window=20).std()
         df['BB_Lower'] = df['BB_Middle'] - 2 * df['close'].rolling(window=20).std()
 
-        # Xác định xu hướng
-        trend = "Không xác định"
-        if len(df) > 1:
-            last_row = df.iloc[-1]
-            prev_row = df.iloc[-2]
-            if last_row['close'] > last_row['MA50'] and last_row['close'] > last_row['MA100'] and last_row['MA50'] > prev_row['MA50']:
-                trend = "TĂNG"
-            elif last_row['close'] < last_row['MA50'] and last_row['close'] < last_row['MA100'] and last_row['MA50'] < prev_row['MA50']:
-                trend = "GIẢM"
-            else:
-                trend = "ĐI NGANG"
-
-        # Xác định tín hiệu gần nhất
         recent_signal = None
         last_buy_signal = None
 
-        for index, row in df[::-1].iterrows():
-            if recent_signal is None and row['close'] > row['MA50'] and row['MACD'] > row['Signal'] and row['RSI'] < 30:
-                last_buy_signal = {
-                    "price": row['close'],
-                    "timestamp": row['timestamp']
-                }
+        # Tìm tín hiệu mới nhất (MUA hoặc BÁN)
+        for _, row in df[::-1].iterrows():
+            if row['close'] > row['MA50'] and row['MACD'] > row['Signal'] and row['RSI'] < 30:
+                # Tín hiệu MUA
                 recent_signal = {
                     "type": "MUA",
                     "price": row['close'],
                     "timestamp": row['timestamp']
                 }
-
-            elif recent_signal is None and row['close'] <= row['BB_Lower']:
-                last_buy_signal = {
-                    "price": row['close'],
-                    "timestamp": row['timestamp']
-                }
+                break
+            elif row['close'] <= row['BB_Lower']:
+                # Tín hiệu MUA
                 recent_signal = {
                     "type": "MUA",
                     "price": row['close'],
                     "timestamp": row['timestamp']
                 }
-
-            elif recent_signal is None and row['close'] < row['MA50'] and row['MACD'] < row['Signal'] and row['RSI'] > 70:
+                break
+            elif row['close'] < row['MA50'] and row['MACD'] < row['Signal'] and row['RSI'] > 70:
+                # Tín hiệu BÁN
                 recent_signal = {
                     "type": "BÁN",
                     "price": row['close'],
-                    "timestamp": row['timestamp'],
-                    "buy_signal": last_buy_signal
+                    "timestamp": row['timestamp']
                 }
-
-            elif recent_signal is None and row['close'] >= row['BB_Upper']:
+                break
+            elif row['close'] >= row['BB_Upper']:
+                # Tín hiệu BÁN
                 recent_signal = {
                     "type": "BÁN",
                     "price": row['close'],
-                    "timestamp": row['timestamp'],
-                    "buy_signal": last_buy_signal
+                    "timestamp": row['timestamp']
                 }
+                break
 
-        # Hiển thị thông tin vị thế
-        position_info = "Không có tín hiệu mua/bán trong 7 ngày qua."
+        # Xử lý dựa trên tín hiệu mới nhất
         if recent_signal:
             if recent_signal['type'] == "MUA":
+                # Tính lãi/lỗ dựa trên giá hiện tại
                 profit_loss = ((current_price - recent_signal['price']) / recent_signal['price']) * 100
                 profit_color = (
                     f"{profit_loss:.2f}% 🟢" if profit_loss > 0 else
@@ -183,9 +165,28 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
                     f"- Lãi/Lỗ: {profit_color}"
                 )
             elif recent_signal['type'] == "BÁN":
-                buy_signal = recent_signal.get('buy_signal')
-                if buy_signal:
-                    profit_loss = ((recent_signal['price'] - buy_signal['price']) / buy_signal['price']) * 100
+                # Tìm tín hiệu MUA gần nhất trước tín hiệu BÁN
+                for _, row in df[::-1].iterrows():
+                    if row['timestamp'] >= recent_signal['timestamp']:
+                        continue  # Bỏ qua các tín hiệu sau tín hiệu BÁN
+                    if row['close'] > row['MA50'] and row['MACD'] > row['Signal'] and row['RSI'] < 30:
+                        # Tín hiệu MUA hợp lệ
+                        last_buy_signal = {
+                            "price": row['close'],
+                            "timestamp": row['timestamp']
+                        }
+                        break
+                    elif row['close'] <= row['BB_Lower']:
+                        # Tín hiệu MUA hợp lệ
+                        last_buy_signal = {
+                            "price": row['close'],
+                            "timestamp": row['timestamp']
+                        }
+                        break
+
+                # Hiển thị thông tin nếu có tín hiệu MUA trước đó
+                if last_buy_signal:
+                    profit_loss = ((recent_signal['price'] - last_buy_signal['price']) / last_buy_signal['price']) * 100
                     profit_color = (
                         f"{profit_loss:.2f}% 🟢" if profit_loss > 0 else
                         f"{profit_loss:.2f}% 🔴" if profit_loss < 0 else
@@ -194,8 +195,8 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
                     position_info = (
                         f"- Xu hướng: **{trend}**\n"
                         f"- Vị thế hiện tại: **BÁN**\n"
-                        f"- Ngày mua: {buy_signal['timestamp'].strftime('%Y-%m-%d %H:%M:%S')}\n"
-                        f"- Giá mua: {buy_signal['price']:.2f} {quote_currency}\n"
+                        f"- Ngày mua: {last_buy_signal['timestamp'].strftime('%Y-%m-%d %H:%M:%S')}\n"
+                        f"- Giá mua: {last_buy_signal['price']:.2f} {quote_currency}\n"
                         f"- Ngày bán: {recent_signal['timestamp'].strftime('%Y-%m-%d %H:%M:%S')}\n"
                         f"- Giá bán: {recent_signal['price']:.2f} {quote_currency}\n"
                         f"- Lãi/Lỗ: {profit_color}"
@@ -222,6 +223,7 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
     except Exception as e:
         await update.message.reply_text(f"Đã xảy ra lỗi: {e}")
+
 
 async def chart(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Tạo và gửi biểu đồ kỹ thuật."""
