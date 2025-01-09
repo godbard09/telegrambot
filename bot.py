@@ -94,7 +94,7 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
             return
 
         df['MA50'] = df['close'].rolling(window=50).mean()
-        df['MA100'] = df['close'].rolling(window=50).mean()
+        df['MA100'] = df['close'].rolling(window=100).mean()
         df['EMA12'] = df['close'].ewm(span=12).mean()
         df['EMA26'] = df['close'].ewm(span=26).mean()
         df['MACD'] = df['EMA12'] - df['EMA26']
@@ -106,7 +106,7 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         df['RSI'] = 100 - (100 / (1 + rs))
         df['BB_Middle'] = df['close'].rolling(window=20).mean()
         df['BB_Upper'] = df['BB_Middle'] + 2 * df['close'].rolling(window=20).std()
-        df['BB_Lower'] = df['BB_Middle'] - 2 * df['close'].rolling(window=20).std()
+        df['BB_Lower'] = df['BB_Middle'] - df['close'].rolling(window=20).std()
 
         trend = "Không xác định"
         if len(df) > 1:
@@ -149,23 +149,21 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
                 break
 
             elif row['close'] < row['MA50'] and row['MACD'] < row['Signal'] and row['RSI'] > 70:
-                if last_buy_signal and last_buy_signal['timestamp'] < row['timestamp']:
-                    recent_signal = {
-                        "type": "BÁN",
-                        "price": row['close'],
-                        "timestamp": row['timestamp'],
-                        "buy_signal": last_buy_signal
-                    }
+                recent_signal = {
+                    "type": "BÁN",
+                    "price": row['close'],
+                    "timestamp": row['timestamp'],
+                    "buy_signal": last_buy_signal
+                }
                 break
 
             elif row['close'] >= row['BB_Upper']:
-                if last_buy_signal and last_buy_signal['timestamp'] < row['timestamp']:
-                    recent_signal = {
-                        "type": "BÁN",
-                        "price": row['close'],
-                        "timestamp": row['timestamp'],
-                        "buy_signal": last_buy_signal
-                    }
+                recent_signal = {
+                    "type": "BÁN",
+                    "price": row['close'],
+                    "timestamp": row['timestamp'],
+                    "buy_signal": last_buy_signal
+                }
                 break
 
         position_info = "Không có tín hiệu mua/bán trong 7 ngày qua."
@@ -224,6 +222,8 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
     except Exception as e:
         await update.message.reply_text(f"Đã xảy ra lỗi: {e}")
+
+
 
 
 async def chart(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
