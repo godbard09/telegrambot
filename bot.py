@@ -110,11 +110,14 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
         recent_signal = None
         last_buy_signal = None
-        now = pd.Timestamp.now(tz=vietnam_tz)
 
-        # Find the latest signal
-        for index, row in df[::-1].iterrows():
+        # Iterate from the latest to find the most recent signal
+        for _, row in df[::-1].iterrows():
             if row['close'] > row['MA50'] and row['MACD'] > row['Signal'] and row['RSI'] < 30:
+                last_buy_signal = {
+                    "price": row['close'],
+                    "timestamp": row['timestamp']
+                }
                 recent_signal = {
                     "type": "MUA",
                     "price": row['close'],
@@ -123,6 +126,10 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
                 break
 
             elif row['close'] <= row['BB_Lower']:
+                last_buy_signal = {
+                    "price": row['close'],
+                    "timestamp": row['timestamp']
+                }
                 recent_signal = {
                     "type": "MUA",
                     "price": row['close'],
@@ -131,45 +138,21 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
                 break
 
             elif row['close'] < row['MA50'] and row['MACD'] < row['Signal'] and row['RSI'] > 70:
-                # Find the most recent MUA signal before this BÁN signal
-                last_buy_signal = None
-                for _, buy_row in df.iloc[:index][::-1].iterrows():
-                    if buy_row['close'] > buy_row['MA50'] and buy_row['MACD'] > buy_row['Signal'] and buy_row['RSI'] < 30:
-                        last_buy_signal = {
-                            "price": buy_row['close'],
-                            "timestamp": buy_row['timestamp']
-                        }
-                        break
-                    elif buy_row['close'] <= buy_row['BB_Lower']:
-                        last_buy_signal = {
-                            "price": buy_row['close'],
-                            "timestamp": buy_row['timestamp']
-                        }
-                        break
-                recent_signal = {
-                    "type": "BÁN",
-                    "price": row['close'],
-                    "timestamp": row['timestamp'],
-                    "buy_signal": last_buy_signal
-                }
-                break
-
-            elif row['close'] >= row['BB_Upper']:
-                # Find the most recent MUA signal before this BÁN signal
-                last_buy_signal = None
-                for _, buy_row in df.iloc[:index][::-1].iterrows():
-                    if buy_row['close'] > buy_row['MA50'] and buy_row['MACD'] > buy_row['Signal'] and buy_row['RSI'] < 30:
-                        last_buy_signal = {
-                            "price": buy_row['close'],
-                            "timestamp": buy_row['timestamp']
-                        }
-                        break
-                    elif buy_row['close'] <= buy_row['BB_Lower']:
-                        last_buy_signal = {
-                            "price": buy_row['close'],
-                            "timestamp": buy_row['timestamp']
-                        }
-                        break
+                # Find the latest buy signal before this sell signal
+                for _, buy_row in df[::-1].iterrows():
+                    if buy_row['timestamp'] < row['timestamp']:
+                        if buy_row['close'] > buy_row['MA50'] and buy_row['MACD'] > buy_row['Signal'] and buy_row['RSI'] < 30:
+                            last_buy_signal = {
+                                "price": buy_row['close'],
+                                "timestamp": buy_row['timestamp']
+                            }
+                            break
+                        elif buy_row['close'] <= buy_row['BB_Lower']:
+                            last_buy_signal = {
+                                "price": buy_row['close'],
+                                "timestamp": buy_row['timestamp']
+                            }
+                            break
                 recent_signal = {
                     "type": "BÁN",
                     "price": row['close'],
