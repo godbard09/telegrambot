@@ -138,7 +138,7 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
                 break
 
             elif row['close'] < row['MA50'] and row['MACD'] < row['Signal'] and row['RSI'] > 70:
-                # Find the nearest and latest MUA signal before this BÁN signal
+                # Find the latest MUA signal before this BÁN signal
                 last_buy_signal = None
                 for _, buy_row in df[::-1].iterrows():
                     if buy_row['timestamp'] < row['timestamp']:
@@ -163,7 +163,7 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
                 break
 
             elif row['close'] >= row['BB_Upper']:
-                # Find the nearest and latest MUA signal before this BÁN signal
+                # Find the latest MUA signal before this BÁN signal
                 last_buy_signal = None
                 for _, buy_row in df[::-1].iterrows():
                     if buy_row['timestamp'] < row['timestamp']:
