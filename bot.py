@@ -134,6 +134,8 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         position_info = "Không có tín hiệu mua/bán gần đây."
 
         if recent_signal:
+            signal_age = (pd.Timestamp.utcnow().tz_convert(vietnam_tz) - recent_signal['timestamp']).total_seconds() / 3600
+            position_status = "THEO DÕI" if signal_age > 2 else recent_signal['type']
             if recent_signal['type'] == "MUA":
                 profit_loss = ((current_price - recent_signal['price']) / recent_signal['price']) * 100
                 profit_color = (
@@ -143,7 +145,7 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
                 )
                 position_info = (
                     f"- Xu hướng: **{trend}**\n"
-                    f"- Vị thế hiện tại: **MUA**\n"
+                    f"- Vị thế hiện tại: **{position_status}**\n"
                     f"- Ngày mua: {recent_signal['timestamp'].strftime('%Y-%m-%d %H:%M:%S')}\n"
                     f"- Giá mua: {recent_signal['price']:.2f} {quote_currency}\n"
                     f"- Lãi/Lỗ: {profit_color}"
@@ -159,7 +161,7 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
                     )
                     position_info = (
                         f"- Xu hướng: **{trend}**\n"
-                        f"- Vị thế hiện tại: **BÁN**\n"
+                        f"- Vị thế hiện tại: **{position_status}**\n"
                         f"- Ngày mua: {prior_buy['timestamp'].strftime('%Y-%m-%d %H:%M:%S')}\n"
                         f"- Giá mua: {prior_buy['price']:.2f} {quote_currency}\n"
                         f"- Ngày bán: {recent_signal['timestamp'].strftime('%Y-%m-%d %H:%M:%S')}\n"
@@ -169,11 +171,12 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
                 else:
                     position_info = (
                         f"- Xu hướng: **{trend}**\n"
-                        f"- Vị thế hiện tại: **BÁN**\n"
+                        f"- Vị thế hiện tại: **{position_status}**\n"
                         f"- Ngày bán: {recent_signal['timestamp'].strftime('%Y-%m-%d %H:%M:%S')}\n"
                         f"- Giá bán: {recent_signal['price']:.2f} {quote_currency}\n"
                         f"- Lãi/Lỗ: Không xác định (không có tín hiệu mua trước đó)."
                     )
+
 
         message = escape_markdown(
             f"Thông tin giá hiện tại cho {symbol}:\n"
