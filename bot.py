@@ -564,7 +564,7 @@ async def signal(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             await update.message.reply_text("Cặp giao dịch không hợp lệ. Vui lòng sử dụng định dạng như BTC/USDT.")
             return
 
-        timeframe = '1h'
+        timeframe = '6h'
         limit = 500
 
         markets = exchange.load_markets()
@@ -595,44 +595,40 @@ async def signal(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         df['RSI'] = 100 - (100 / (1 + rs))
         df['BB_Middle'] = df['close'].rolling(window=20).mean()
         df['BB_Upper'] = df['BB_Middle'] + 2 * df['close'].rolling(window=20).std()
-        df['BB_Lower'] = df['BB_Middle'] - 2 * df['close'].rolling(window=20).std()
+        df['BB_Lower'] = df['BB_Middle'] - df['close'].rolling(window=20).std()
 
-        # Phát hiện tín hiệu mua bán hiện tại có thể dao động trong vòng 2 tiếng
+        # Phát hiện tín hiệu mua bán hiện tại
+        last_row = df.iloc[-1]  # Lấy dòng dữ liệu cuối cùng
         signals_now = []
-        last_buy_price_global = None  # Lưu giá mua gần nhất hợp lệ
+        last_buy_price = None
 
-        # Thời điểm hiện tại
-        now = pd.Timestamp.now(tz=vietnam_tz)
-        time_threshold = now - pd.Timedelta(hours=2)
+        # Thời điểm và giá hiện tại
+        current_time = last_row['timestamp'].strftime('%Y-%m-%d %H:%M:%S')
+        current_price = last_row['close']
 
-        recent_data = df[df['timestamp'] >= time_threshold]
-        for _, row in recent_data.iterrows():
-            current_time = row['timestamp'].strftime('%Y-%m-%d %H:%M:%S')
-            current_price = row['close']
+        # Tín hiệu mua
+        if last_row['close'] > last_row['MA50'] and last_row['MACD'] > last_row['Signal'] and last_row['RSI'] < 30:
+            last_buy_price = last_row['close']
+            profit_loss = ((current_price - last_row['close']) / last_row['close']) * 100
+            profit_icon = "\U0001F7E2" if profit_loss >= 0 else "\U0001F534"
+            signals_now.append(f"\U0001F7E2 Mua: Giá {last_row['close']:.2f} {unit} vào lúc {current_time}. {profit_icon} Lãi/Lỗ: {profit_loss:.2f}%")
+        elif last_row['close'] <= last_row['BB_Lower']:
+            last_buy_price = last_row['close']
+            profit_loss = ((current_price - last_row['close']) / last_row['close']) * 100
+            profit_icon = "\U0001F7E2" if profit_loss >= 0 else "\U0001F534"
+            signals_now.append(f"\U0001F7E2 Mua: Giá {last_row['close']:.2f} {unit} vào lúc {current_time}. {profit_icon} Lãi/Lỗ: {profit_loss:.2f}%")
 
-            # Tín hiệu mua
-            if row['close'] > row['MA50'] and row['MACD'] > row['Signal'] and row['RSI'] < 30:
-                last_buy_price_global = row['close']  # Cập nhật giá mua toàn cục
-                profit_loss = ((current_price - last_buy_price_global) / last_buy_price_global) * 100
+        # Tín hiệu bán
+        if last_row['close'] < last_row['MA50'] and last_row['MACD'] < last_row['Signal'] and last_row['RSI'] > 70:
+            if last_buy_price:
+                profit_loss = ((last_row['close'] - last_buy_price) / last_buy_price) * 100
                 profit_icon = "\U0001F7E2" if profit_loss >= 0 else "\U0001F534"
-                signals_now.append(f"\U0001F7E2 Mua: Giá {row['close']:.2f} {unit} vào lúc {current_time}. {profit_icon} Lãi/Lỗ: {profit_loss:.2f}%")
-            elif row['close'] <= row['BB_Lower']:
-                last_buy_price_global = row['close']  # Cập nhật giá mua toàn cục
-                profit_loss = ((current_price - last_buy_price_global) / last_buy_price_global) * 100
+                signals_now.append(f"\U0001F534 Bán: Giá {current_price:.2f} {unit} vào lúc {current_time}. {profit_icon} Lãi/Lỗ: {profit_loss:.2f}%")
+        elif last_row['close'] >= last_row['BB_Upper']:
+            if last_buy_price:
+                profit_loss = ((last_row['close'] - last_buy_price) / last_buy_price) * 100
                 profit_icon = "\U0001F7E2" if profit_loss >= 0 else "\U0001F534"
-                signals_now.append(f"\U0001F7E2 Mua: Giá {row['close']:.2f} {unit} vào lúc {current_time}. {profit_icon} Lãi/Lỗ: {profit_loss:.2f}%")
-
-            # Tín hiệu bán giữ nguyên logic
-            if row['close'] < row['MA50'] and row['MACD'] < row['Signal'] and row['RSI'] > 70:
-                if last_buy_price_global is not None:
-                    profit_loss = ((row['close'] - last_buy_price_global) / last_buy_price_global) * 100
-                    profit_icon = "\U0001F7E2" if profit_loss >= 0 else "\U0001F534"
-                    signals_now.append(f"\U0001F534 Bán: Giá {current_price:.2f} {unit} vào lúc {current_time}. {profit_icon} Lãi/Lỗ: {profit_loss:.2f}%")
-            elif row['close'] >= row['BB_Upper']:
-                if last_buy_price_global is not None:
-                    profit_loss = ((row['close'] - last_buy_price_global) / last_buy_price_global) * 100
-                    profit_icon = "\U0001F7E2" if profit_loss >= 0 else "\U0001F534"
-                    signals_now.append(f"\U0001F534 Bán: Giá {current_price:.2f} {unit} vào lúc {current_time}. {profit_icon} Lãi/Lỗ: {profit_loss:.2f}%")
+                signals_now.append(f"\U0001F534 Bán: Giá {current_price:.2f} {unit} vào lúc {current_time}. {profit_icon} Lãi/Lỗ: {profit_loss:.2f}%")
 
         # Phát hiện tín hiệu mua bán trong 7 ngày qua
         signals_past = []
