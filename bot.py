@@ -95,6 +95,7 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
         df['MA50'] = df['close'].rolling(window=50).mean()
         df['MA100'] = df['close'].rolling(window=100).mean()
+        df['MA200'] = df['close'].rolling(window=200).mean()
         df['EMA12'] = df['close'].ewm(span=12).mean()
         df['EMA26'] = df['close'].ewm(span=26).mean()
         df['MACD'] = df['EMA12'] - df['EMA26']
@@ -120,15 +121,17 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
                 trend = "ĐI NGANG"
 
         signals = []
+        previous_MA50 = None
+        previous_MA200 = None
+
         for _, row in df.iterrows():
-            if row['close'] > row['MA50'] and row['MACD'] > row['Signal'] and row['RSI'] < 30:
-                signals.append({"type": "MUA", "price": row['close'], "timestamp": row['timestamp']})
-            elif row['close'] <= row['BB_Lower']:
-                signals.append({"type": "MUA", "price": row['close'], "timestamp": row['timestamp']})
-            elif row['close'] < row['MA50'] and row['MACD'] < row['Signal'] and row['RSI'] > 70:
-                signals.append({"type": "BÁN", "price": row['close'], "timestamp": row['timestamp']})
-            elif row['close'] >= row['BB_Upper']:
-                signals.append({"type": "BÁN", "price": row['close'], "timestamp": row['timestamp']})
+            if previous_MA50 is not None and previous_MA200 is not None:
+                if previous_MA50 <= previous_MA200 and row['MA50'] > row['MA200'] and row['MACD'] > row['Signal'] and row['RSI'] < 30:
+                    signals.append({"type": "MUA", "price": row['close'], "timestamp": row['timestamp']})
+                elif previous_MA50 >= previous_MA200 and row['MA50'] < row['MA200'] and row['MACD'] < row['Signal'] and row['RSI'] > 70:
+                    signals.append({"type": "BÁN", "price": row['close'], "timestamp": row['timestamp']})
+            previous_MA50 = row['MA50']
+            previous_MA200 = row['MA200']
 
         recent_signal = signals[-1] if signals else None
         position_info = "Không có tín hiệu mua/bán gần đây."
