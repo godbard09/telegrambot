@@ -95,7 +95,6 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
         df['MA50'] = df['close'].rolling(window=50).mean()
         df['MA100'] = df['close'].rolling(window=100).mean()
-        df['MA200'] = df['close'].rolling(window=200).mean()
         df['EMA12'] = df['close'].ewm(span=12).mean()
         df['EMA26'] = df['close'].ewm(span=26).mean()
         df['MACD'] = df['EMA12'] - df['EMA26']
@@ -121,17 +120,15 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
                 trend = "ĐI NGANG"
 
         signals = []
-        previous_MA50 = None
-        previous_MA200 = None
-
         for _, row in df.iterrows():
-            if previous_MA50 is not None and previous_MA200 is not None:
-                if previous_MA50 <= previous_MA200 and row['MA50'] > row['MA200'] and row['MACD'] > row['Signal'] and row['RSI'] < 30:
-                    signals.append({"type": "MUA", "price": row['close'], "timestamp": row['timestamp']})
-                elif previous_MA50 >= previous_MA200 and row['MA50'] < row['MA200'] and row['MACD'] < row['Signal'] and row['RSI'] > 70:
-                    signals.append({"type": "BÁN", "price": row['close'], "timestamp": row['timestamp']})
-            previous_MA50 = row['MA50']
-            previous_MA200 = row['MA200']
+            if row['close'] > row['MA50'] and row['MACD'] > row['Signal'] and row['RSI'] < 30:
+                signals.append({"type": "MUA", "price": row['close'], "timestamp": row['timestamp']})
+            elif row['close'] <= row['BB_Lower']:
+                signals.append({"type": "MUA", "price": row['close'], "timestamp": row['timestamp']})
+            elif row['close'] < row['MA50'] and row['MACD'] < row['Signal'] and row['RSI'] > 70:
+                signals.append({"type": "BÁN", "price": row['close'], "timestamp": row['timestamp']})
+            elif row['close'] >= row['BB_Upper']:
+                signals.append({"type": "BÁN", "price": row['close'], "timestamp": row['timestamp']})
 
         recent_signal = signals[-1] if signals else None
         position_info = "Không có tín hiệu mua/bán gần đây."
@@ -488,7 +485,6 @@ async def list_signals(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
                 # Lấy tín hiệu gần nhất
                 last_row = df.iloc[-1]
-                prev_row = df.iloc[-2]
                 current_time = last_row['timestamp'].strftime('%Y-%m-%d %H:%M:%S')
                 current_price = last_row['close']
 
@@ -496,13 +492,13 @@ async def list_signals(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
                 quote_currency = symbol.split('/')[1] if '/' in symbol else 'USD'
 
                 # Tín hiệu mua
-                if prev_row['MA50'] <= prev_row['MA200'] and last_row['MA50'] > last_row['MA200'] and last_row['MACD'] > last_row['Signal'] and last_row['RSI'] < 30:
+                if last_row['close'] > last_row['MA50'] and last_row['MACD'] > last_row['Signal'] and last_row['RSI'] < 30:
                     buy_signals.append((symbol, current_price, current_time, quote_currency))
                 elif last_row['close'] <= last_row['BB_Lower']:
                     buy_signals.append((symbol, current_price, current_time, quote_currency))
 
                 # Tín hiệu bán
-                if prev_row['MA50'] >= prev_row['MA200'] and last_row['MA50'] < last_row['MA200'] and last_row['MACD'] < last_row['Signal'] and last_row['RSI'] > 70:
+                if last_row['close'] < last_row['MA50'] and last_row['MACD'] < last_row['Signal'] and last_row['RSI'] > 70:
                     sell_signals.append((symbol, current_price, current_time, quote_currency))
                 elif last_row['close'] >= last_row['BB_Upper']:
                     sell_signals.append((symbol, current_price, current_time, quote_currency))
@@ -585,7 +581,6 @@ async def signal(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         # Tính toán các chỉ báo kỹ thuật
         df['MA50'] = df['close'].rolling(window=50).mean()
         df['MA100'] = df['close'].rolling(window=100).mean()
-        df['MA200'] = df['close'].rolling(window=200).mean()
         df['EMA12'] = df['close'].ewm(span=12).mean()
         df['EMA26'] = df['close'].ewm(span=26).mean()
         df['MACD'] = df['EMA12'] - df['EMA26']
@@ -601,7 +596,6 @@ async def signal(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
         # Phát hiện tín hiệu mua bán hiện tại
         last_row = df.iloc[-1]  # Lấy dòng dữ liệu cuối cùng
-        prev_row = df.iloc[-2]
         signals_now = []
         last_buy_price = None
         last_buy_price_global = None  # Lưu giá mua gần nhất hợp lệ
@@ -611,7 +605,7 @@ async def signal(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         current_price = last_row['close']
 
         # Tín hiệu mua
-        if prev_row['MA50'] <= prev_row['MA200'] and last_row['MA50'] > last_row['MA200'] and last_row['MACD'] > last_row['Signal'] and last_row['RSI'] < 30:
+        if last_row['close'] > last_row['MA50'] and last_row['MACD'] > last_row['Signal'] and last_row['RSI'] < 30:
             last_buy_price = last_row['close']
             last_buy_price_global = last_row['close']  # Cập nhật giá mua toàn cục
             profit_loss = ((current_price - last_buy_price) / last_buy_price) * 100
@@ -625,7 +619,7 @@ async def signal(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             signals_now.append(f"\U0001F7E2 Mua: Giá {last_row['close']:.2f} {unit} vào lúc {current_time}. {profit_icon} Lãi/Lỗ: {profit_loss:.2f}%")
 
         # Tín hiệu bán
-        if prev_row['MA50'] >= prev_row['MA200'] and last_row['MA50'] < last_row['MA200'] and last_row['MACD'] < last_row['Signal'] and last_row['RSI'] > 70:
+        if last_row['close'] < last_row['MA50'] and last_row['MACD'] < last_row['Signal'] and last_row['RSI'] > 70:
             if last_buy_price_global is not None:  # Sử dụng giá mua gần nhất hợp lệ
                 profit_loss = ((last_row['close'] - last_buy_price_global) / last_buy_price_global) * 100
                 profit_icon = "\U0001F7E2" if profit_loss >= 0 else "\U0001F534"
@@ -644,7 +638,7 @@ async def signal(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 continue
 
             # Tín hiệu mua trong 7 ngày qua
-            if prev_row['MA50'] <= prev_row['MA200'] and row['MA50'] > row['MA200'] and row['MACD'] > row['Signal'] and row['RSI'] < 30:
+            if row['close'] > row['MA50'] and row['MACD'] > row['Signal'] and row['RSI'] < 30:
                 last_buy_price_global = row['close']  # Cập nhật giá mua toàn cục
                 profit_loss = ((current_price - last_buy_price_global) / last_buy_price_global) * 100
                 profit_icon = "\U0001F7E2" if profit_loss >= 0 else "\U0001F534"
@@ -656,7 +650,7 @@ async def signal(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 signals_past.append(f"\U0001F7E2 Mua: Giá {row['close']:.2f} {unit} vào lúc {row['timestamp'].strftime('%Y-%m-%d %H:%M:%S')}. {profit_icon} Lãi/Lỗ: {profit_loss:.2f}%")
 
             # Tín hiệu bán trong 7 ngày qua
-            if prev_row['MA50'] >= prev_row['MA200'] and row['MA50'] < row['MA200'] and row['MACD'] < row['Signal'] and row['RSI'] > 70:
+            if row['close'] < row['MA50'] and row['MACD'] < row['Signal'] and row['RSI'] > 70:
                 if last_buy_price_global is not None:  # Sử dụng giá mua toàn cục
                     profit_loss = ((row['close'] - last_buy_price_global) / last_buy_price_global) * 100
                     profit_icon = "\U0001F7E2" if profit_loss >= 0 else "\U0001F534"
