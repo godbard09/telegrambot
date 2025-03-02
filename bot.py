@@ -488,6 +488,7 @@ async def list_signals(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
                 # Lấy tín hiệu gần nhất
                 last_row = df.iloc[-1]
+                prev_row = df.iloc[-2]
                 current_time = last_row['timestamp'].strftime('%Y-%m-%d %H:%M:%S')
                 current_price = last_row['close']
 
@@ -495,13 +496,13 @@ async def list_signals(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
                 quote_currency = symbol.split('/')[1] if '/' in symbol else 'USD'
 
                 # Tín hiệu mua
-                if last_row['close'] > last_row['MA50'] and last_row['MACD'] > last_row['Signal'] and last_row['RSI'] < 30:
+                if prev_row['MA50'] <= prev_row['MA200'] and last_row['MA50'] > last_row['MA200'] and last_row['MACD'] > last_row['Signal'] and last_row['RSI'] < 30:
                     buy_signals.append((symbol, current_price, current_time, quote_currency))
                 elif last_row['close'] <= last_row['BB_Lower']:
                     buy_signals.append((symbol, current_price, current_time, quote_currency))
 
                 # Tín hiệu bán
-                if last_row['close'] < last_row['MA50'] and last_row['MACD'] < last_row['Signal'] and last_row['RSI'] > 70:
+                if prev_row['MA50'] >= prev_row['MA200'] and last_row['MA50'] < last_row['MA200'] and last_row['MACD'] < last_row['Signal'] and last_row['RSI'] > 70:
                     sell_signals.append((symbol, current_price, current_time, quote_currency))
                 elif last_row['close'] >= last_row['BB_Upper']:
                     sell_signals.append((symbol, current_price, current_time, quote_currency))
