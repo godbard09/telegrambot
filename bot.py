@@ -151,7 +151,8 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
                     f"- Lãi/Lỗ: {profit_color}"
                 )
             elif recent_signal['type'] == "BÁN":
-                prior_buy = next((s for s in reversed(signals) if s['type'] == "MUA" and s['timestamp'] < recent_signal['timestamp']), None)
+                prior_buys = [s for s in signals if s['type'] == "MUA" and s['timestamp'] < recent_signal['timestamp']]
+                prior_buy = max(prior_buys, key=lambda x: x['timestamp']) if prior_buys else None
                 if prior_buy:
                     profit_loss = ((recent_signal['price'] - prior_buy['price']) / prior_buy['price']) * 100
                     profit_color = (
