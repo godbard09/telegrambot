@@ -607,28 +607,32 @@ async def signal(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         current_time = last_row['timestamp'].strftime('%Y-%m-%d %H:%M:%S')
         current_price = last_row['close']
 
+        # Kiểm tra nếu tín hiệu dao động trong vòng 2 tiếng gần nhất
+        time_threshold = last_row['timestamp'] - pd.Timedelta(hours=2)
+        recent_data = df[df['timestamp'] >= time_threshold]
+
         # Tín hiệu mua
-        if last_row['close'] > last_row['MA50'] and last_row['MACD'] > last_row['Signal'] and last_row['RSI'] < 30:
+        if any((recent_data['close'] > recent_data['MA50']) & (recent_data['MACD'] > recent_data['Signal']) & (recent_data['RSI'] < 30)):
             last_buy_price = last_row['close']
             last_buy_price_global = last_row['close']  # Cập nhật giá mua toàn cục
             profit_loss = ((current_price - last_buy_price) / last_buy_price) * 100
             profit_icon = "\U0001F7E2" if profit_loss >= 0 else "\U0001F534"
-            signals_now.append(f"\U0001F7E2 Mua: Giá {last_row['close']:.2f} {unit} vào lúc {current_time}. {profit_icon} Lãi/Lỗ: {profit_loss:.2f}%")
+            signals_now.append(f"\U0001F7E2 Mua: Giá {last_row['close']:.2f} {unit} vào lúc {current_time} (dao động trong vòng 2 giờ). {profit_icon} Lãi/Lỗ: {profit_loss:.2f}%")
         elif last_row['close'] <= last_row['BB_Lower']:
             last_buy_price = last_row['close']
             last_buy_price_global = last_row['close']  # Cập nhật giá mua toàn cục
             profit_loss = ((current_price - last_buy_price) / last_buy_price) * 100
             profit_icon = "\U0001F7E2" if profit_loss >= 0 else "\U0001F534"
-            signals_now.append(f"\U0001F7E2 Mua: Giá {last_row['close']:.2f} {unit} vào lúc {current_time}. {profit_icon} Lãi/Lỗ: {profit_loss:.2f}%")
+            signals_now.append(f"\U0001F7E2 Mua: Giá {last_row['close']:.2f} {unit} vào lúc {current_time} (dao động trong vòng 2 giờ). {profit_icon} Lãi/Lỗ: {profit_loss:.2f}%")
 
-        # Tín hiệu bán
+        # Tín hiệu bán giữ nguyên logic
         if last_row['close'] < last_row['MA50'] and last_row['MACD'] < last_row['Signal'] and last_row['RSI'] > 70:
-            if last_buy_price_global is not None:  # Sử dụng giá mua gần nhất hợp lệ
+            if last_buy_price_global is not None:
                 profit_loss = ((last_row['close'] - last_buy_price_global) / last_buy_price_global) * 100
                 profit_icon = "\U0001F7E2" if profit_loss >= 0 else "\U0001F534"
                 signals_now.append(f"\U0001F534 Bán: Giá {current_price:.2f} {unit} vào lúc {current_time}. {profit_icon} Lãi/Lỗ: {profit_loss:.2f}%")
         elif last_row['close'] >= last_row['BB_Upper']:
-            if last_buy_price_global is not None:  # Sử dụng giá mua gần nhất hợp lệ
+            if last_buy_price_global is not None:
                 profit_loss = ((last_row['close'] - last_buy_price_global) / last_buy_price_global) * 100
                 profit_icon = "\U0001F7E2" if profit_loss >= 0 else "\U0001F534"
                 signals_now.append(f"\U0001F534 Bán: Giá {current_price:.2f} {unit} vào lúc {current_time}. {profit_icon} Lãi/Lỗ: {profit_loss:.2f}%")
