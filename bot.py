@@ -716,9 +716,9 @@ TIMEFRAME_MAPPING = {
 }
 
 async def send_heatmap(chat, timeframe: str):
-    """Tạo và gửi bản đồ nhiệt với thời gian 1h, 1d, 1w."""
+    """Tạo và gửi heatmap theo timeframe được chọn."""
     try:
-        print(f"📌 Đang tạo heatmap cho: {timeframe}")  # Debug xem timeframe đúng chưa
+        print(f"📌 Đang tạo heatmap cho: {timeframe}")
 
         url = "https://api.coingecko.com/api/v3/coins/markets"
         params = {
@@ -776,35 +776,39 @@ async def send_heatmap(chat, timeframe: str):
             await chat.send_message("❌ Lỗi khi tạo file heatmap.html. Vui lòng thử lại!")
             return
         else:
-            print(f"✅ File {html_path} đã được tạo thành công!")  # Debug
+            print(f"✅ File {html_path} đã được tạo thành công!")
 
-        keyboard = [
-            [
-                InlineKeyboardButton("🔹 1h", switch_inline_query_current_chat="/heatmap 1h"),
-                InlineKeyboardButton("🔹 1d", switch_inline_query_current_chat="/heatmap 1d"),
-                InlineKeyboardButton("🔹 1w", switch_inline_query_current_chat="/heatmap 1w"),
-            ]
-        ]
-        reply_markup = InlineKeyboardMarkup(keyboard)
-
-        await chat.send_document(document=open(html_path, "rb"), filename=html_path, reply_markup=reply_markup)
+        await chat.send_document(document=open(html_path, "rb"), filename=html_path)
 
         # Xóa file sau khi gửi xong (chờ 10 giây)
         await asyncio.sleep(10)
         os.remove(html_path)
-        print(f"🗑️ File {html_path} đã được xóa.")  # Debug
+        print(f"🗑️ File {html_path} đã được xóa.")
 
     except Exception as e:
         await chat.send_message(f"❌ Đã xảy ra lỗi: {e}")
 
 async def heatmap(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Lệnh /heatmap gửi bản đồ nhiệt mặc định (1 ngày) hoặc theo thời gian nhập"""
-    timeframe = "1d"  # Mặc định là 1 ngày
-    if context.args:
-        timeframe = context.args[0] if context.args[0] in TIMEFRAME_MAPPING else "1d"
+    """Lệnh /heatmap chỉ gửi các nút chọn 1h, 1d, 1w"""
+    keyboard = [
+        [
+            InlineKeyboardButton("📊 Heatmap 1h", callback_data="heatmap_1h"),
+            InlineKeyboardButton("📊 Heatmap 1d", callback_data="heatmap_1d"),
+            InlineKeyboardButton("📊 Heatmap 1w", callback_data="heatmap_1w"),
+        ]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
 
-    print(f"📌 Nhận lệnh /heatmap {timeframe}")  # Debug
+    await update.message.reply_text("📊 Chọn timeframe để xem heatmap:", reply_markup=reply_markup)
+
+async def heatmap_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Xử lý khi bấm vào nút 1h, 1d, 1w"""
+    query = update.callback_query
+    await query.answer()
+    timeframe = query.data.split("_")[1]  # Lấy giá trị 1h, 1d, 1w
+    print(f"📌 Callback được gọi: {query.data}")
     await send_heatmap(update.effective_chat, timeframe)
+
 
 async def set_webhook(application: Application):
     """Thiết lập Webhook."""
@@ -828,6 +832,8 @@ def main():
     application.add_handler(CommandHandler("info", info))
     application.add_handler(CallbackQueryHandler(button))  # Thêm handler cho nút bấm từ /top
     application.add_handler(CommandHandler("heatmap", heatmap))
+    application.add_handler(CallbackQueryHandler(heatmap_callback, pattern="^heatmap_"))
+
 
 
     # Chạy webhook
