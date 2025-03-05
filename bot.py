@@ -768,8 +768,8 @@ async def send_heatmap(chat, timeframe: str):
             [1, "rgb(0, 102, 0)"]   # Xanh đậm (tăng rất mạnh)
         ]
 
-        # 🔹 Căn chỉnh văn bản giữa ô (dùng nhiều <br> để đảm bảo nội dung nằm giữa)
-        df["text"] = df.apply(lambda row: f"<br><br><b>{row['symbol'].upper()}</b><br>${row['current_price']:,.2f}<br>{row['price_change']:.2f}%<br><br>", axis=1)
+        # 🔹 Căn chỉnh văn bản đều trong từng ô
+        df["text"] = df.apply(lambda row: f"<b>{row['symbol'].upper()}</b><br>${row['current_price']:,.2f}<br>{row['price_change']:.2f}%", axis=1)
 
         fig = go.Figure(data=go.Treemap(
             labels=df["symbol"].str.upper(),
