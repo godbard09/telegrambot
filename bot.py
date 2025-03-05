@@ -819,8 +819,8 @@ async def heatmap(update, context):
     await send_heatmap(update.effective_chat, "1d")
     await send_heatmap(update.effective_chat, "1w")
 
-async def desc(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Lấy thông tin chi tiết về đồng coin từ CoinGecko (mô tả tiếng Việt)."""
+async def desc(update, context):
+    """Lấy thông tin chi tiết về đồng coin từ CoinGecko (mô tả từ phần "About")."""
     try:
         if not context.args:
             await update.message.reply_text("Vui lòng cung cấp mã coin. Ví dụ: /desc BTC")
@@ -828,8 +828,8 @@ async def desc(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
         coin_symbol = context.args[0].lower()
 
-        # 🔹 Gọi API CoinGecko để lấy Categories & Description (tiếng Việt)
-        url_coingecko = f"https://api.coingecko.com/api/v3/coins/{coin_symbol}?localization=vi"
+        # 🔹 Gọi API CoinGecko để lấy dữ liệu
+        url_coingecko = f"https://api.coingecko.com/api/v3/coins/{coin_symbol}?localization=false"
         response_coingecko = requests.get(url_coingecko)
 
         if response_coingecko.status_code != 200:
@@ -837,10 +837,20 @@ async def desc(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             return
 
         data_coingecko = response_coingecko.json()
-        coin_name = data_coingecko["name"]
-        symbol = data_coingecko["symbol"].upper()
+        coin_name = data_coingecko.get("name", "Không có thông tin")
+        symbol = data_coingecko.get("symbol", "N/A").upper()
         categories = ", ".join(data_coingecko.get("categories", ["Không có thông tin"]))
-        description = data_coingecko["description"].get("vi", "Không có mô tả bằng tiếng Việt.")
+
+        # Lấy mô tả tiếng Việt nếu có, nếu không thì lấy mô tả tiếng Anh
+        description_vi = data_coingecko["description"].get("vi")
+        description_en = data_coingecko["description"].get("en")
+
+        if description_vi:
+            description = description_vi  # Lấy mô tả tiếng Việt
+        elif description_en:
+            description = description_en  # Nếu không có tiếng Việt, lấy tiếng Anh
+        else:
+            description = "Không có mô tả."
 
         # 🔹 Định dạng lại thông tin giống ảnh mẫu
         message = (
