@@ -718,6 +718,8 @@ TIMEFRAME_MAPPING = {
 async def send_heatmap(chat, timeframe: str):
     """Tạo và gửi bản đồ nhiệt với thời gian 1h, 1d, 1w."""
     try:
+        print(f"📌 Đang tạo heatmap cho: {timeframe}")  # Debug xem timeframe đúng chưa
+
         url = "https://api.coingecko.com/api/v3/coins/markets"
         params = {
             "vs_currency": "usd",
@@ -740,6 +742,10 @@ async def send_heatmap(chat, timeframe: str):
             return
 
         df = pd.DataFrame(data)
+        if price_change_column not in df.columns:
+            await chat.send_message(f"❌ API không trả về dữ liệu cho `{timeframe}`. Vui lòng thử lại sau!")
+            return
+
         df["price_change"] = df[price_change_column]
         df = df.dropna(subset=["price_change"])
         df = df.sort_values("price_change", ascending=False)
@@ -762,12 +768,15 @@ async def send_heatmap(chat, timeframe: str):
             template="plotly_dark"
         )
 
-        html_path = "heatmap.html"  # Lưu file đúng thư mục
+        html_path = "heatmap.html"
         fig.write_html(html_path)
 
+        # Kiểm tra xem file có được tạo không
         if not os.path.exists(html_path):
             await chat.send_message("❌ Lỗi khi tạo file heatmap.html. Vui lòng thử lại!")
             return
+        else:
+            print(f"✅ File {html_path} đã được tạo thành công!")  # Debug
 
         keyboard = [
             [
@@ -781,6 +790,7 @@ async def send_heatmap(chat, timeframe: str):
         await chat.send_document(document=open(html_path, "rb"), filename="heatmap.html", reply_markup=reply_markup)
 
         os.remove(html_path)  # Xóa file sau khi gửi
+        print(f"🗑️ File {html_path} đã được xóa.")  # Debug
 
     except Exception as e:
         await chat.send_message(f"❌ Đã xảy ra lỗi: {e}")
@@ -790,6 +800,8 @@ async def heatmap(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     timeframe = "1d"  # Mặc định là 1 ngày
     if context.args:
         timeframe = context.args[0] if context.args[0] in TIMEFRAME_MAPPING else "1d"
+
+    print(f"📌 Nhận lệnh /heatmap {timeframe}")  # Debug
     await send_heatmap(update.effective_chat, timeframe)
 
 async def set_webhook(application: Application):
