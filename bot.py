@@ -657,39 +657,19 @@ async def signal(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 
 async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Lấy thông tin chi tiết về một đồng coin từ CoinGecko."""
+    """Lấy thông tin chi tiết về một đồng coin từ CoinGecko dựa trên tên đầy đủ."""
     try:
         if not context.args:
-            await update.message.reply_text("Vui lòng cung cấp mã coin. Ví dụ: /info BTC")
+            await update.message.reply_text("Vui lòng cung cấp tên coin. Ví dụ: /info bitcoin")
             return
 
-        coin_symbol = context.args[0].lower()  # Chuyển mã coin thành chữ thường
+        coin_name = "-".join(context.args).lower()  # Hỗ trợ tên có dấu cách (ví dụ: "bitcoin cash" -> "bitcoin-cash")
 
-        # Bước 1: Lấy danh sách tất cả coin từ CoinGecko
-        coin_list_url = "https://api.coingecko.com/api/v3/coins/list"
-        coin_list_response = requests.get(coin_list_url)
-        if coin_list_response.status_code != 200:
-            await update.message.reply_text("Không thể lấy danh sách coin từ CoinGecko.")
-            return
-
-        coin_list = coin_list_response.json()
-
-        # Bước 2: Tìm ID chính xác cho coin theo symbol
-        coin_id = None
-        for coin in coin_list:
-            if coin["symbol"].lower() == coin_symbol:
-                coin_id = coin["id"]
-                break
-
-        if not coin_id:
-            await update.message.reply_text(f"Không tìm thấy thông tin về đồng coin: {coin_symbol.upper()}. Vui lòng kiểm tra lại.")
-            return
-
-        # Bước 3: Gọi API để lấy thông tin chi tiết của coin
-        url = f"https://api.coingecko.com/api/v3/coins/{coin_id}"
+        # Gọi API để lấy thông tin chi tiết của coin
+        url = f"https://api.coingecko.com/api/v3/coins/{coin_name}"
         response = requests.get(url)
         if response.status_code != 200:
-            await update.message.reply_text(f"Không thể lấy dữ liệu cho {coin_symbol.upper()}. Vui lòng thử lại sau.")
+            await update.message.reply_text(f"Không tìm thấy thông tin về đồng coin: {coin_name}. Vui lòng kiểm tra lại.")
             return
 
         data = response.json()
@@ -722,7 +702,6 @@ async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     except Exception as e:
         await update.message.reply_text(f"Đã xảy ra lỗi: {e}")
-
 
 
 async def set_webhook(application: Application):
