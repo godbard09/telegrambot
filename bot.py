@@ -768,12 +768,16 @@ async def send_heatmap(chat, timeframe: str):
             [1, "rgb(0, 102, 0)"]   # Xanh đậm (tăng rất mạnh)
         ]
 
+        # 🔹 Căn chỉnh văn bản đều trong từng ô
+        df["text"] = df.apply(lambda row: f"<b>{row['symbol'].upper()}</b><br>${row['current_price']:,.2f}<br>{row['price_change']:.2f}%", axis=1)
+
         fig = go.Figure(data=go.Treemap(
             labels=df["symbol"].str.upper(),
             parents=[""] * len(df),
             values=df["size"],
-            text=[f"${p:,.2f}\n{c:.2f}%" for p, c in zip(df["current_price"], df["price_change"])],
-            textinfo="label+text",
+            text=df["text"],
+            textinfo="text",
+            texttemplate="%{text}",
             marker=dict(
                 colors=df["price_change"],
                 colorscale=colorscale,
@@ -806,7 +810,7 @@ async def send_heatmap(chat, timeframe: str):
     except Exception as e:
         await chat.send_message(f"❌ Đã xảy ra lỗi: {e}")
 
-async def heatmap(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def heatmap(update, context):
     """Lệnh /heatmap tự động gửi 3 heatmap (1h, 1d, 1w) với màu sắc theo mẫu"""
     await update.message.reply_text("📊 Đang tạo heatmap với màu giống hình mẫu. Vui lòng chờ...")
     
