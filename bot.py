@@ -718,9 +718,9 @@ TIMEFRAME_MAPPING = {
 
 async def heatmap(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Hiển thị bản đồ nhiệt của top 100 coin"""
-    await send_heatmap(update, context, timeframe="1d", is_callback=False)
+    await send_heatmap(update, context, timeframe="1d", callback=False)
 
-async def send_heatmap(update: Update, context: ContextTypes.DEFAULT_TYPE, timeframe: str, is_callback: bool):
+async def send_heatmap(update: Update, context: ContextTypes.DEFAULT_TYPE, timeframe: str, callback: bool):
     """Gửi heatmap dưới dạng file HTML với tùy chọn timeframe (1h, 1d, 1w)."""
     try:
         url = "https://api.coingecko.com/api/v3/coins/markets"
@@ -736,7 +736,7 @@ async def send_heatmap(update: Update, context: ContextTypes.DEFAULT_TYPE, timef
         data = response.json()
 
         if response.status_code != 200 or not data:
-            if is_callback:
+            if callback:
                 await update.callback_query.message.reply_text("Không thể lấy dữ liệu từ CoinGecko. Vui lòng thử lại sau!")
             else:
                 await update.message.reply_text("Không thể lấy dữ liệu từ CoinGecko. Vui lòng thử lại sau!")
@@ -744,7 +744,7 @@ async def send_heatmap(update: Update, context: ContextTypes.DEFAULT_TYPE, timef
 
         price_change_column = TIMEFRAME_MAPPING.get(timeframe)
         if price_change_column is None:
-            if is_callback:
+            if callback:
                 await update.callback_query.message.reply_text("Sai khoảng thời gian! Vui lòng chọn 1h, 1d hoặc 1w.")
             else:
                 await update.message.reply_text("Sai khoảng thời gian! Vui lòng chọn 1h, 1d hoặc 1w.")
@@ -781,7 +781,7 @@ async def send_heatmap(update: Update, context: ContextTypes.DEFAULT_TYPE, timef
 
         # Kiểm tra xem file có được tạo không
         if not os.path.exists(html_path):
-            if is_callback:
+            if callback:
                 await update.callback_query.message.reply_text("Lỗi khi tạo file heatmap.html. Vui lòng thử lại!")
             else:
                 await update.message.reply_text("Lỗi khi tạo file heatmap.html. Vui lòng thử lại!")
@@ -796,7 +796,8 @@ async def send_heatmap(update: Update, context: ContextTypes.DEFAULT_TYPE, timef
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
 
-        if is_callback:
+        # Gửi file HTML qua Telegram
+        if callback:
             await update.callback_query.message.reply_document(document=open(html_path, "rb"), filename="heatmap.html", reply_markup=reply_markup)
         else:
             await update.message.reply_document(document=open(html_path, "rb"), filename="heatmap.html", reply_markup=reply_markup)
@@ -805,7 +806,7 @@ async def send_heatmap(update: Update, context: ContextTypes.DEFAULT_TYPE, timef
         os.remove(html_path)
 
     except Exception as e:
-        if is_callback:
+        if callback:
             await update.callback_query.message.reply_text(f"Đã xảy ra lỗi: {e}")
         else:
             await update.message.reply_text(f"Đã xảy ra lỗi: {e}")
@@ -815,7 +816,8 @@ async def heatmap_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     query = update.callback_query
     await query.answer()
     timeframe = query.data.split("_")[1]
-    await send_heatmap(update, context, timeframe, is_callback=True)
+    await send_heatmap(update, context, timeframe, callback=True)
+
 
 
 
