@@ -762,7 +762,7 @@ async def send_heatmap(chat, timeframe: str):
             template="plotly_dark"
         )
 
-        html_path = "/mnt/data/heatmap.html"
+        html_path = "heatmap.html"  # Sửa lại đường dẫn này
         fig.write_html(html_path)
 
         if not os.path.exists(html_path):
