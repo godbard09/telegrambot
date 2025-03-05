@@ -709,6 +709,13 @@ async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     except Exception as e:
         await update.message.reply_text(f"Đã xảy ra lỗi: {e}")
 
+# Ánh xạ timeframe sang API CoinGecko
+TIMEFRAME_MAPPING = {
+    "1h": "price_change_percentage_1h_in_currency",
+    "1d": "price_change_percentage_24h_in_currency",
+    "1w": "price_change_percentage_7d_in_currency"
+}
+
 async def heatmap(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Hiển thị bản đồ nhiệt của top 100 coin"""
     await send_heatmap(update, context, timeframe="1d")
@@ -733,9 +740,15 @@ async def send_heatmap(update: Update, context: ContextTypes.DEFAULT_TYPE, timef
             await update.message.reply_text("Không thể lấy dữ liệu từ CoinGecko. Vui lòng thử lại sau!")
             return
 
+        # Lấy tên đúng của cột thay đổi giá
+        price_change_column = TIMEFRAME_MAPPING.get(timeframe)
+        if price_change_column is None:
+            await update.message.reply_text("Sai khoảng thời gian! Vui lòng chọn 1h, 1d hoặc 1w.")
+            return
+
         # Xử lý dữ liệu
         df = pd.DataFrame(data)
-        df["price_change"] = df[f"price_change_percentage_{timeframe}_in_currency"]
+        df["price_change"] = df[price_change_column]  # Lấy biến động giá theo thời gian
         df = df.dropna(subset=["price_change"])  # Loại bỏ coin không có dữ liệu
 
         # Sắp xếp để hiển thị đẹp hơn
@@ -789,6 +802,7 @@ async def heatmap_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     await query.answer()
     timeframe = query.data.split("_")[1]  # Lấy timeframe từ callback_data
     await send_heatmap(update, context, timeframe)
+
 
 
 async def set_webhook(application: Application):
