@@ -716,14 +716,14 @@ TIMEFRAME_MAPPING = {
 }
 
 async def send_heatmap(chat, timeframe: str):
-    """Tạo và gửi heatmap có kích thước khác nhau nhưng không quá chênh lệch"""
+    """Tạo và gửi heatmap với màu sắc đậm dần theo mức độ tăng/giảm"""
     try:
         print(f"📌 Đang tạo heatmap cho: {timeframe}")
 
         url = "https://api.coingecko.com/api/v3/coins/markets"
         params = {
             "vs_currency": "usd",
-            "order": "market_cap_desc",  # 🔹 Sắp xếp theo vốn hóa lớn nhất
+            "order": "market_cap_desc",
             "per_page": 100,
             "page": 1,
             "sparkline": False,
@@ -752,24 +752,25 @@ async def send_heatmap(chat, timeframe: str):
         # 🔹 Sắp xếp theo vốn hóa thị trường lớn nhất → nhỏ nhất
         df = df.sort_values("market_cap", ascending=False)
 
-        # 🔹 Dùng căn bậc hai của vốn hóa để giảm khoảng cách giữa coin lớn và nhỏ
-        df["size"] = np.sqrt(df["market_cap"])  
+        # 🔹 Dùng sqrt(vốn hóa) để giảm chênh lệch kích thước
+        df["size"] = np.sqrt(df["market_cap"])
 
         fig = go.Figure(data=go.Treemap(
             labels=df["symbol"].str.upper(),
             parents=[""] * len(df),
-            values=df["size"],  # 🔹 Kích thước theo sqrt(vốn hóa) để giảm chênh lệch
+            values=df["size"],
             text=[f"${p:,.2f}\n{c:.2f}%" for p, c in zip(df["current_price"], df["price_change"])],
             textinfo="label+text",
             marker=dict(
                 colors=df["price_change"],
-                colorscale="RdYlGn",
+                colorscale="RdYlGn",  # 🔹 Tăng là xanh, giảm là đỏ
+                cmid=0,  # 🔹 Mốc trung tính là 0% (màu vàng)
                 showscale=True
             )
         ))
 
         fig.update_layout(
-            title=f"📊 Heatmap of Top 100 Coins ({timeframe.upper()}) - Kích Thước Cân Bằng",
+            title=f"📊 Heatmap of Top 100 Coins ({timeframe.upper()}) - Màu Đậm Dần Theo Độ Biến Động",
             template="plotly_dark"
         )
 
@@ -793,8 +794,8 @@ async def send_heatmap(chat, timeframe: str):
         await chat.send_message(f"❌ Đã xảy ra lỗi: {e}")
 
 async def heatmap(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Lệnh /heatmap tự động gửi 3 heatmap (1h, 1d, 1w) với kích thước cân bằng"""
-    await update.message.reply_text("📊 Đang tạo heatmap với kích thước cân bằng. Vui lòng chờ...")
+    """Lệnh /heatmap tự động gửi 3 heatmap (1h, 1d, 1w) với màu đậm dần"""
+    await update.message.reply_text("📊 Đang tạo heatmap với màu sắc phản ánh độ biến động. Vui lòng chờ...")
     
     await send_heatmap(update.effective_chat, "1h")
     await send_heatmap(update.effective_chat, "1d")
