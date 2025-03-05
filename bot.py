@@ -787,7 +787,7 @@ async def send_heatmap(chat, timeframe: str):
 
 async def heatmap(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Lệnh /heatmap gửi bản đồ nhiệt mặc định (1 ngày) hoặc theo thời gian nhập"""
-    timeframe = "1d"  # Mặc định là 1 ngày
+    timeframe = "1h"  # Mặc định là 1 ngày
     if context.args:
         timeframe = context.args[0] if context.args[0] in TIMEFRAME_MAPPING else "1d"
     await send_heatmap(update.effective_chat, timeframe)
