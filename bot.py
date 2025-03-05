@@ -716,7 +716,7 @@ TIMEFRAME_MAPPING = {
 }
 
 async def send_heatmap(chat, timeframe: str):
-    """Tạo và gửi heatmap với màu sắc đậm dần theo mức độ tăng/giảm"""
+    """Tạo và gửi heatmap chỉ có 2 màu: Xanh lá (tăng), Đỏ (giảm)"""
     try:
         print(f"📌 Đang tạo heatmap cho: {timeframe}")
 
@@ -755,6 +755,9 @@ async def send_heatmap(chat, timeframe: str):
         # 🔹 Dùng sqrt(vốn hóa) để giảm chênh lệch kích thước
         df["size"] = np.sqrt(df["market_cap"])
 
+        # 🔹 Tạo cột màu: nếu giảm thì đỏ, nếu tăng thì xanh
+        colors = ["red" if v < 0 else "green" for v in df["price_change"]]
+
         fig = go.Figure(data=go.Treemap(
             labels=df["symbol"].str.upper(),
             parents=[""] * len(df),
@@ -762,15 +765,15 @@ async def send_heatmap(chat, timeframe: str):
             text=[f"${p:,.2f}\n{c:.2f}%" for p, c in zip(df["current_price"], df["price_change"])],
             textinfo="label+text",
             marker=dict(
-                colors=df["price_change"],
-                colorscale="RdYlGn",  # 🔹 Tăng là xanh, giảm là đỏ
-                cmid=0,  # 🔹 Mốc trung tính là 0% (màu vàng)
+                colors=df["price_change"],  # 🔹 Độ đậm theo biến động
+                colorscale=[[0, "red"], [0.5, "red"], [0.5, "green"], [1, "green"]],  # 🔹 Chỉ có 2 màu
+                cmid=0,  # 🔹 Trung tâm ở 0 (tránh màu trung gian)
                 showscale=True
             )
         ))
 
         fig.update_layout(
-            title=f"📊 Heatmap of Top 100 Coins ({timeframe.upper()}) - Màu Đậm Dần Theo Độ Biến Động",
+            title=f"📊 Heatmap of Top 100 Coins ({timeframe.upper()}) - Chỉ 2 Màu Xanh/Đỏ",
             template="plotly_dark"
         )
 
@@ -794,8 +797,8 @@ async def send_heatmap(chat, timeframe: str):
         await chat.send_message(f"❌ Đã xảy ra lỗi: {e}")
 
 async def heatmap(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Lệnh /heatmap tự động gửi 3 heatmap (1h, 1d, 1w) với màu đậm dần"""
-    await update.message.reply_text("📊 Đang tạo heatmap với màu sắc phản ánh độ biến động. Vui lòng chờ...")
+    """Lệnh /heatmap tự động gửi 3 heatmap (1h, 1d, 1w) chỉ có 2 màu"""
+    await update.message.reply_text("📊 Đang tạo heatmap chỉ có 2 màu xanh/đỏ. Vui lòng chờ...")
     
     await send_heatmap(update.effective_chat, "1h")
     await send_heatmap(update.effective_chat, "1d")
