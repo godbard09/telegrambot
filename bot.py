@@ -762,7 +762,7 @@ async def send_heatmap(chat, timeframe: str):
             template="plotly_dark"
         )
 
-        html_path = "heatmap.html"  # Sửa lại đường dẫn này
+        html_path = "heatmap.html"  # Lưu file đúng thư mục
         fig.write_html(html_path)
 
         if not os.path.exists(html_path):
@@ -771,9 +771,9 @@ async def send_heatmap(chat, timeframe: str):
 
         keyboard = [
             [
-                InlineKeyboardButton("🔹 1h", callback_data="heatmap_1h"),
-                InlineKeyboardButton("🔹 1d", callback_data="heatmap_1d"),
-                InlineKeyboardButton("🔹 1w", callback_data="heatmap_1w"),
+                InlineKeyboardButton("🔹 1h", switch_inline_query_current_chat="/heatmap 1h"),
+                InlineKeyboardButton("🔹 1d", switch_inline_query_current_chat="/heatmap 1d"),
+                InlineKeyboardButton("🔹 1w", switch_inline_query_current_chat="/heatmap 1w"),
             ]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
@@ -787,23 +787,10 @@ async def send_heatmap(chat, timeframe: str):
 
 async def heatmap(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Lệnh /heatmap gửi bản đồ nhiệt mặc định (1 ngày) hoặc theo thời gian nhập"""
-    print(f"📌 /heatmap được gọi với context.args: {context.args}")  # Debug
     timeframe = "1d"  # Mặc định là 1 ngày
     if context.args:
         timeframe = context.args[0] if context.args[0] in TIMEFRAME_MAPPING else "1d"
     await send_heatmap(update.effective_chat, timeframe)
-
-async def heatmap_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Khi bấm vào nút 1h, 1d, 1w, bot sẽ gọi lại heatmap với thời gian tương ứng"""
-    query = update.callback_query
-    await query.answer()
-    
-    # Debug xem callback đang nhận giá trị gì
-    print(f"📌 Callback nhận được: {query.data}")  
-
-    timeframe = query.data.split("_")[1]  # Lấy giá trị 1h, 1d, 1w
-    await send_heatmap(update.effective_chat, timeframe)  # Gọi lại heatmap với thời gian tương ứng
-
 
 async def set_webhook(application: Application):
     """Thiết lập Webhook."""
@@ -827,7 +814,6 @@ def main():
     application.add_handler(CommandHandler("info", info))
     application.add_handler(CallbackQueryHandler(button))  # Thêm handler cho nút bấm từ /top
     application.add_handler(CommandHandler("heatmap", heatmap))
-    application.add_handler(CallbackQueryHandler(heatmap_callback, pattern="^heatmap_"))
 
 
     # Chạy webhook
