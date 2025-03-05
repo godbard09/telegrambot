@@ -663,16 +663,38 @@ async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             await update.message.reply_text("Vui lòng cung cấp mã coin. Ví dụ: /info BTC")
             return
 
-        coin_id = context.args[0].lower()  # Lấy mã coin từ lệnh người dùng
-        url = f'https://api.coingecko.com/api/v3/coins/{coin_id}'
+        coin_symbol = context.args[0].lower()  # Chuyển mã coin thành chữ thường
 
+        # Bước 1: Lấy danh sách tất cả coin từ CoinGecko
+        coin_list_url = "https://api.coingecko.com/api/v3/coins/list"
+        coin_list_response = requests.get(coin_list_url)
+        if coin_list_response.status_code != 200:
+            await update.message.reply_text("Không thể lấy danh sách coin từ CoinGecko.")
+            return
+
+        coin_list = coin_list_response.json()
+
+        # Bước 2: Tìm ID chính xác cho coin theo symbol
+        coin_id = None
+        for coin in coin_list:
+            if coin["symbol"].lower() == coin_symbol:
+                coin_id = coin["id"]
+                break
+
+        if not coin_id:
+            await update.message.reply_text(f"Không tìm thấy thông tin về đồng coin: {coin_symbol.upper()}. Vui lòng kiểm tra lại.")
+            return
+
+        # Bước 3: Gọi API để lấy thông tin chi tiết của coin
+        url = f"https://api.coingecko.com/api/v3/coins/{coin_id}"
         response = requests.get(url)
         if response.status_code != 200:
-            await update.message.reply_text("Không tìm thấy thông tin về đồng coin này. Vui lòng kiểm tra lại.")
+            await update.message.reply_text(f"Không thể lấy dữ liệu cho {coin_symbol.upper()}. Vui lòng thử lại sau.")
             return
 
         data = response.json()
 
+        # Lấy thông tin quan trọng
         price_usd = data['market_data']['current_price']['usd']
         high_24h = data['market_data']['high_24h']['usd']
         change_1h = data['market_data']['price_change_percentage_1h_in_currency']['usd']
@@ -700,8 +722,6 @@ async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     except Exception as e:
         await update.message.reply_text(f"Đã xảy ra lỗi: {e}")
-
-
 
 
 
