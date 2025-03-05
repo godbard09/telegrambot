@@ -709,7 +709,6 @@ async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     except Exception as e:
         await update.message.reply_text(f"Đã xảy ra lỗi: {e}")
 
-
 TIMEFRAME_MAPPING = {
     "1h": "price_change_percentage_1h_in_currency",
     "1d": "price_change_percentage_24h_in_currency",
@@ -718,10 +717,10 @@ TIMEFRAME_MAPPING = {
 
 async def heatmap(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Lệnh /heatmap gửi bản đồ nhiệt mặc định (1 ngày)"""
-    await send_heatmap(update, context, timeframe="1d")
+    await send_heatmap(update, context, timeframe="1d", is_callback=False)
 
-async def send_heatmap(update: Update, context: ContextTypes.DEFAULT_TYPE, timeframe: str):
-    """Tạo và gửi bản đồ nhiệt với thời gian 1h, 1d, 1w (KHÔNG XÓA tin nhắn cũ)."""
+async def send_heatmap(update: Update, context: ContextTypes.DEFAULT_TYPE, timeframe: str, is_callback: bool):
+    """Tạo và gửi bản đồ nhiệt với thời gian 1h, 1d, 1w."""
     try:
         url = "https://api.coingecko.com/api/v3/coins/markets"
         params = {
@@ -736,12 +735,20 @@ async def send_heatmap(update: Update, context: ContextTypes.DEFAULT_TYPE, timef
         data = response.json()
 
         if response.status_code != 200 or not data:
-            await update.effective_message.reply_text("Không thể lấy dữ liệu từ CoinGecko. Vui lòng thử lại sau!")
+            error_message = "Không thể lấy dữ liệu từ CoinGecko. Vui lòng thử lại sau!"
+            if is_callback:
+                await update.callback_query.message.reply_text(error_message)
+            else:
+                await update.message.reply_text(error_message)
             return
 
         price_change_column = TIMEFRAME_MAPPING.get(timeframe)
         if price_change_column is None:
-            await update.effective_message.reply_text("Sai khung thời gian! Vui lòng chọn 1h, 1d hoặc 1w.")
+            error_message = "Sai khung thời gian! Vui lòng chọn 1h, 1d hoặc 1w."
+            if is_callback:
+                await update.callback_query.message.reply_text(error_message)
+            else:
+                await update.message.reply_text(error_message)
             return
 
         df = pd.DataFrame(data)
@@ -771,7 +778,11 @@ async def send_heatmap(update: Update, context: ContextTypes.DEFAULT_TYPE, timef
         fig.write_html(html_path)
 
         if not os.path.exists(html_path):
-            await update.effective_message.reply_text("Lỗi khi tạo file heatmap.html. Vui lòng thử lại!")
+            error_message = "Lỗi khi tạo file heatmap.html. Vui lòng thử lại!"
+            if is_callback:
+                await update.callback_query.message.reply_text(error_message)
+            else:
+                await update.message.reply_text(error_message)
             return
 
         keyboard = [
@@ -783,19 +794,28 @@ async def send_heatmap(update: Update, context: ContextTypes.DEFAULT_TYPE, timef
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
 
-        await update.effective_message.reply_document(document=open(html_path, "rb"), filename="heatmap.html", reply_markup=reply_markup)
+        # Kiểm tra nếu là callback từ nút bấm
+        if is_callback:
+            await update.callback_query.message.reply_document(document=open(html_path, "rb"), filename="heatmap.html", reply_markup=reply_markup)
+        else:
+            await update.message.reply_document(document=open(html_path, "rb"), filename="heatmap.html", reply_markup=reply_markup)
 
-        os.remove(html_path)  # Xóa file để tiết kiệm bộ nhớ
+        os.remove(html_path)  # Xóa file sau khi gửi
 
     except Exception as e:
-        await update.effective_message.reply_text(f"Đã xảy ra lỗi: {e}")
+        error_message = f"Đã xảy ra lỗi: {e}"
+        if is_callback:
+            await update.callback_query.message.reply_text(error_message)
+        else:
+            await update.message.reply_text(error_message)
 
 async def heatmap_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Xử lý khi người dùng bấm vào các nút 1h, 1d, 1w"""
     query = update.callback_query
     await query.answer()
     timeframe = query.data.split("_")[1]
-    await send_heatmap(update, context, timeframe)
+    await send_heatmap(update, context, timeframe, is_callback=True)
+
 
 
 
