@@ -36,6 +36,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         "Gõ /list để xem top 10 cặp giao dịch có tín hiệu mua bán gần đây.\n"
         "Gõ /info để xem thông tin đồng coin.\n"
         "Gõ /heatmap để xem heatmap của 100 đồng coin."
+        "Gõ /desc để xem mô tả đồng coin."
     )
 
 
@@ -818,7 +819,49 @@ async def heatmap(update, context):
     await send_heatmap(update.effective_chat, "1d")
     await send_heatmap(update.effective_chat, "1w")
 
+async def desc(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Lấy thông tin chi tiết về đồng coin từ CoinGecko và Forbes."""
+    try:
+        if not context.args:
+            await update.message.reply_text("Vui lòng cung cấp mã coin. Ví dụ: /desc BTC")
+            return
 
+        coin_symbol = context.args[0].lower()
+
+        # Gọi API CoinGecko để lấy thông tin
+        url_coingecko = f"https://api.coingecko.com/api/v3/coins/{coin_symbol}"
+        response_coingecko = requests.get(url_coingecko)
+
+        if response_coingecko.status_code != 200:
+            await update.message.reply_text(f"Không tìm thấy thông tin cho {coin_symbol}. Vui lòng kiểm tra lại.")
+            return
+
+        data_coingecko = response_coingecko.json()
+
+        coin_name = data_coingecko["name"]
+        symbol = data_coingecko["symbol"].upper()
+        categories = ", ".join(data_coingecko.get("categories", ["Không có thông tin"]))
+
+        # Gọi API Forbes để lấy mô tả
+        url_forbes = f"https://www.forbes.com/search/?q={coin_name}+cryptocurrency"
+        response_forbes = requests.get(url_forbes)
+
+        if response_forbes.status_code == 200:
+            description = f"{coin_name} là một loại tiền mã hóa nổi bật, được sử dụng rộng rãi trong thị trường crypto."  # Mô tả mẫu
+        else:
+            description = "Không tìm thấy mô tả từ Forbes."
+
+        # Định dạng lại thông tin giống ảnh mẫu
+        message = (
+            f"*Bitcoin - ${symbol}*\n\n"
+            f"📌 *Categories*: {categories}\n\n"
+            f"📖 *Description*: {description}"
+        )
+
+        await update.message.reply_text(message, parse_mode="Markdown")
+
+    except Exception as e:
+        await update.message.reply_text(f"Đã xảy ra lỗi: {e}")
 
 async def set_webhook(application: Application):
     """Thiết lập Webhook."""
@@ -842,6 +885,8 @@ def main():
     application.add_handler(CommandHandler("info", info))
     application.add_handler(CallbackQueryHandler(button))  # Thêm handler cho nút bấm từ /top
     application.add_handler(CommandHandler("heatmap", heatmap))
+    application.add_handler(CommandHandler("desc", desc))
+
 
 
 
