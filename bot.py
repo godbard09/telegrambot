@@ -12,6 +12,7 @@ import re
 import os
 import plotly.figure_factory as ff
 import numpy as np
+import requests
 
 # Token bot từ BotFather
 TOKEN = "8081244500:AAFkXKLfVoXQeqDYVW_HMdXluGELf9AWD3M"
@@ -654,59 +655,59 @@ async def signal(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     except Exception as e:
         await update.message.reply_text(f"Đã xảy ra lỗi: {e}")
 
-async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Hiển thị thông tin chi tiết về một coin."""
+async def get_coin_info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Lấy thông tin chi tiết của một đồng coin."""
     try:
-        # Kiểm tra xem người dùng có cung cấp mã coin hay không
         if not context.args:
             await update.message.reply_text("Vui lòng cung cấp mã coin. Ví dụ: /info BTC")
             return
 
-        symbol = context.args[0].upper()  # Chuyển mã coin thành chữ hoa
+        symbol = context.args[0].upper()
 
-        # Lấy dữ liệu thị trường
-        markets = exchange.load_markets()
-        ticker = f"{symbol}/USDT"  # Chuyển coin thành cặp giao dịch với USDT
-        if ticker not in markets:
-            await update.message.reply_text(f"Mã coin không hợp lệ: {symbol}. Vui lòng kiểm tra lại.")
+        # Gọi API CoinGecko để lấy thông tin về đồng coin
+        url = f"https://api.coingecko.com/api/v3/coins/markets"
+        params = {
+            "vs_currency": "usd",
+            "ids": symbol.lower(),
+            "order": "market_cap_desc",
+            "per_page": 1,
+            "page": 1,
+            "sparkline": "false",
+            "price_change_percentage": "1h,24h,7d"
+        }
+        response = requests.get(url, params=params)
+        data = response.json()
+
+        if not data:
+            await update.message.reply_text(f"Không tìm thấy thông tin cho {symbol}. Vui lòng kiểm tra lại.")
             return
 
-        # Lấy thông tin giá và biến động giá
-        ticker_data = exchange.fetch_ticker(ticker)
-        price = ticker_data['last']
-        high_24h = ticker_data['high']
-        change_1h = ticker_data.get('change', 0)  # Một số sàn có thể không cung cấp change theo 1h
-        change_24h = ticker_data['percentage']
-        volume_24h = ticker_data.get('quoteVolume', 0)
+        coin = data[0]
+        name = coin.get("name", "Không có dữ liệu")
+        price = coin.get("current_price", "Không có dữ liệu")
+        high_24h = coin.get("high_24h", "Không có dữ liệu")
+        change_1h = coin.get("price_change_percentage_1h_in_currency", "Không có dữ liệu")
+        change_24h = coin.get("price_change_percentage_24h_in_currency", "Không có dữ liệu")
+        change_7d = coin.get("price_change_percentage_7d_in_currency", "Không có dữ liệu")
+        market_cap = coin.get("market_cap", "Không có dữ liệu")
+        volume_24h = coin.get("total_volume", "Không có dữ liệu")
+        circulating_supply = coin.get("circulating_supply", "Không có dữ liệu")
+        max_supply = coin.get("max_supply", "Không có dữ liệu") or "Không xác định"
 
-        # Lấy thông tin vốn hóa thị trường, cung lưu hành và cung tối đa
-        market_data = exchange.fetch_tickers()
-        coin_info = market_data.get(ticker, {})
-
-        circulating_supply = coin_info.get('info', {}).get('circulatingSupply', 'Không rõ')
-        max_supply = coin_info.get('info', {}).get('maxSupply', 'Không rõ')
-        market_cap = coin_info.get('info', {}).get('marketCap', 'Không rõ')
-
-        # Xử lý dữ liệu nếu có giá trị None
-        circulating_supply = f"{circulating_supply:,.0f}" if circulating_supply != 'Không rõ' else "Không rõ"
-        max_supply = f"{max_supply:,.0f}" if max_supply != 'Không rõ' else "Không rõ"
-        market_cap = f"${market_cap:,.2f}" if market_cap != 'Không rõ' else "Không rõ"
-
-        # Gửi thông tin về coin
-        message = escape_markdown(
-            f"📊 *Thông tin chi tiết về {symbol}:*\n"
-            f"- 💰 *Giá hiện tại:* `{price:.2f} USDT`\n"
-            f"- 📈 *Giá cao nhất 24h:* `{high_24h:.2f} USDT`\n"
-            f"- 🔄 *Thay đổi giá (1 giờ):* `{change_1h:.2f}%`\n"
-            f"- 🔄 *Thay đổi giá (24 giờ):* `{change_24h:.2f}%`\n"
-            f"- 🔄 *Doanh thu 24 giờ:* `{volume_24h:,.2f} USDT`\n"
-            f"- 🏦 *Vốn hóa thị trường:* `{market_cap}`\n"
-            f"- 🔄 *Lượng tiền đang lưu thông:* `{circulating_supply}` {symbol}\n"
-            f"- 🔄 *Nguồn cung tối đa:* `{max_supply}` {symbol}",
-            ignore=["*"]
+        message = (
+            f"📊 *Thông tin về {name} ({symbol})* 📊\n"
+            f"- 💰 Giá hiện tại: `{price:,.2f} USD`\n"
+            f"- 🔝 Giá cao nhất 24h: `{high_24h:,.2f} USD`\n"
+            f"- 📈 Thay đổi giá (1h): `{change_1h:.2f}%`\n"
+            f"- 📉 Thay đổi giá (24h): `{change_24h:.2f}%`\n"
+            f"- 📊 Thay đổi giá (7 ngày): `{change_7d:.2f}%`\n"
+            f"- 🏦 Vốn hóa thị trường: `{market_cap:,.0f} USD`\n"
+            f"- 🔄 Doanh thu 24h: `{volume_24h:,.0f} USD`\n"
+            f"- 🔄 Lượng tiền lưu thông: `{circulating_supply:,.0f}`\n"
+            f"- ⛏️ Nguồn cung tối đa: `{max_supply}`\n"
         )
 
-        await update.message.reply_text(message, parse_mode="MarkdownV2")
+        await update.message.reply_text(message, parse_mode="Markdown")
 
     except Exception as e:
         await update.message.reply_text(f"Đã xảy ra lỗi: {e}")
@@ -731,7 +732,7 @@ def main():
     application.add_handler(CommandHandler("top", top))  # Thêm handler cho /top
     application.add_handler(CommandHandler("list", list_signals))
     application.add_handler(CommandHandler("smarttrade", current_price))  # Thêm handler cho /cap
-    application.add_handler(CommandHandler("info", info))
+    application.add_handler(CommandHandler("info", get_coin_info))
     application.add_handler(CallbackQueryHandler(button))  # Thêm handler cho nút bấm từ /top
 
     # Chạy webhook
