@@ -709,6 +709,8 @@ async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     except Exception as e:
         await update.message.reply_text(f"Đã xảy ra lỗi: {e}")
 
+
+
 TIMEFRAME_MAPPING = {
     "1h": "price_change_percentage_1h_in_currency",
     "1d": "price_change_percentage_24h_in_currency",
@@ -766,8 +768,8 @@ async def send_heatmap(update: Update, context: ContextTypes.DEFAULT_TYPE, timef
             template="plotly_dark"
         )
 
-        # Đường dẫn file HTML
-        html_path = "/mnt/data/heatmap.html"
+        # Đổi đường dẫn file HTML sang thư mục hiện tại
+        html_path = "heatmap.html"
 
         # Tạo file HTML
         fig.write_html(html_path)
@@ -789,6 +791,9 @@ async def send_heatmap(update: Update, context: ContextTypes.DEFAULT_TYPE, timef
         # Gửi file HTML qua Telegram
         await update.message.reply_document(document=open(html_path, "rb"), filename="heatmap.html", reply_markup=reply_markup)
 
+        # Xóa file sau khi gửi để tiết kiệm bộ nhớ
+        os.remove(html_path)
+
     except Exception as e:
         await update.message.reply_text(f"Đã xảy ra lỗi: {e}")
 
@@ -798,9 +803,6 @@ async def heatmap_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     await query.answer()
     timeframe = query.data.split("_")[1]
     await send_heatmap(update, context, timeframe)
-
-
-
 
 
 async def set_webhook(application: Application):
