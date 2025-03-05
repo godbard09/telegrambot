@@ -769,7 +769,7 @@ async def send_heatmap(chat, timeframe: str):
         ]
 
         # 🔹 Điều chỉnh kích thước chữ theo độ lớn ô
-        df["text_size"] = df["size"] / max(df["size"]) * 24
+        df["text_size"] = (df["size"] / max(df["size"]) * 30).astype(int) + 10  # Thêm 10 để tránh quá nhỏ
 
         # 🔹 Chỉnh màu chữ: Nền đỏ → chữ trắng, Nền xanh → chữ đen
         df["text_color"] = np.where(df["price_change"] > 0, "black", "white")
