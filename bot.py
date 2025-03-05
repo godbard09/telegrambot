@@ -715,8 +715,12 @@ TIMEFRAME_MAPPING = {
     "1w": "price_change_percentage_7d_in_currency"
 }
 
-async def send_heatmap(update: Update, context: ContextTypes.DEFAULT_TYPE, timeframe: str):
-    """Tạo và gửi bản đồ nhiệt với thời gian 1h, 1d, 1w."""
+async def heatmap(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Gửi heatmap dựa trên mốc thời gian: 1h, 1d, 1w (mặc định là 1d nếu không nhập)"""
+    timeframe = "1d"  # Mặc định 1 ngày
+    if context.args:
+        timeframe = context.args[0] if context.args[0] in TIMEFRAME_MAPPING else "1d"
+
     try:
         url = "https://api.coingecko.com/api/v3/coins/markets"
         params = {
@@ -731,12 +735,12 @@ async def send_heatmap(update: Update, context: ContextTypes.DEFAULT_TYPE, timef
         data = response.json()
 
         if response.status_code != 200 or not data:
-            await update.effective_chat.send_message("Không thể lấy dữ liệu từ CoinGecko. Vui lòng thử lại sau!")
+            await update.message.reply_text("Không thể lấy dữ liệu từ CoinGecko. Vui lòng thử lại sau!")
             return
 
         price_change_column = TIMEFRAME_MAPPING.get(timeframe)
         if price_change_column is None:
-            await update.effective_chat.send_message("Sai khung thời gian! Vui lòng chọn 1h, 1d hoặc 1w.")
+            await update.message.reply_text("Sai khung thời gian! Vui lòng chọn 1h, 1d hoặc 1w.")
             return
 
         df = pd.DataFrame(data)
@@ -766,35 +770,24 @@ async def send_heatmap(update: Update, context: ContextTypes.DEFAULT_TYPE, timef
         fig.write_html(html_path)
 
         if not os.path.exists(html_path):
-            await update.effective_chat.send_message("Lỗi khi tạo file heatmap.html. Vui lòng thử lại!")
+            await update.message.reply_text("Lỗi khi tạo file heatmap.html. Vui lòng thử lại!")
             return
 
         keyboard = [
             [
-                InlineKeyboardButton("1h", callback_data="heatmap_1h"),
-                InlineKeyboardButton("1d", callback_data="heatmap_1d"),
-                InlineKeyboardButton("1w", callback_data="heatmap_1w"),
+                InlineKeyboardButton("1h", switch_inline_query_current_chat="/heatmap 1h"),
+                InlineKeyboardButton("1d", switch_inline_query_current_chat="/heatmap 1d"),
+                InlineKeyboardButton("1w", switch_inline_query_current_chat="/heatmap 1w"),
             ]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
 
-        await update.effective_chat.send_document(document=open(html_path, "rb"), filename="heatmap.html", reply_markup=reply_markup)
+        await update.message.reply_document(document=open(html_path, "rb"), filename="heatmap.html", reply_markup=reply_markup)
 
         os.remove(html_path)  # Xóa file sau khi gửi
 
     except Exception as e:
-        await update.effective_chat.send_message(f"Đã xảy ra lỗi: {e}")
-
-async def heatmap(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Lệnh /heatmap gửi bản đồ nhiệt mặc định (1 ngày)"""
-    await send_heatmap(update, context, timeframe="1d")
-
-async def heatmap_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Khi bấm vào nút 1h, 1d, 1w, bot sẽ gửi lại đúng heatmap như khi nhập lệnh /heatmap, chỉ khác mốc thời gian."""
-    query = update.callback_query
-    await query.answer()
-    timeframe = query.data.split("_")[1]  # Lấy giá trị 1h, 1d, 1w
-    await send_heatmap(update, context, timeframe)  # Chạy lại y chang lệnh /heatmap nhưng với mốc thời gian mới
+        await update.message.reply_text(f"Đã xảy ra lỗi: {e}")
 
 
 
