@@ -13,7 +13,6 @@ import os
 import plotly.figure_factory as ff
 import numpy as np
 import requests
-from bs4 import BeautifulSoup
 
 # Token bot từ BotFather
 TOKEN = "8081244500:AAFkXKLfVoXQeqDYVW_HMdXluGELf9AWD3M"
