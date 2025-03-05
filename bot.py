@@ -709,7 +709,6 @@ async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     except Exception as e:
         await update.message.reply_text(f"Đã xảy ra lỗi: {e}")
 
-
 TIMEFRAME_MAPPING = {
     "1h": "price_change_percentage_1h_in_currency",
     "1d": "price_change_percentage_24h_in_currency",
@@ -738,7 +737,7 @@ async def send_heatmap(update: Update, context: ContextTypes.DEFAULT_TYPE, timef
         if response.status_code != 200 or not data:
             error_message = "Không thể lấy dữ liệu từ CoinGecko. Vui lòng thử lại sau!"
             if is_callback:
-                await update.callback_query.message.edit_text(error_message)
+                await update.callback_query.message.reply_text(error_message)
             else:
                 await update.message.reply_text(error_message)
             return
@@ -747,7 +746,7 @@ async def send_heatmap(update: Update, context: ContextTypes.DEFAULT_TYPE, timef
         if price_change_column is None:
             error_message = "Sai khung thời gian! Vui lòng chọn 1h, 1d hoặc 1w."
             if is_callback:
-                await update.callback_query.message.edit_text(error_message)
+                await update.callback_query.message.reply_text(error_message)
             else:
                 await update.message.reply_text(error_message)
             return
@@ -781,7 +780,7 @@ async def send_heatmap(update: Update, context: ContextTypes.DEFAULT_TYPE, timef
         if not os.path.exists(html_path):
             error_message = "Lỗi khi tạo file heatmap.html. Vui lòng thử lại!"
             if is_callback:
-                await update.callback_query.message.edit_text(error_message)
+                await update.callback_query.message.reply_text(error_message)
             else:
                 await update.message.reply_text(error_message)
             return
@@ -796,7 +795,8 @@ async def send_heatmap(update: Update, context: ContextTypes.DEFAULT_TYPE, timef
         reply_markup = InlineKeyboardMarkup(keyboard)
 
         if is_callback:
-            await update.callback_query.message.delete()  # Xóa heatmap cũ trước khi gửi mới
+            # Chỉ cập nhật tin nhắn cũ thay vì gửi tin nhắn mới
+            await update.callback_query.message.delete()
             await update.callback_query.message.reply_document(document=open(html_path, "rb"), filename="heatmap.html", reply_markup=reply_markup)
         else:
             await update.message.reply_document(document=open(html_path, "rb"), filename="heatmap.html", reply_markup=reply_markup)
@@ -806,7 +806,7 @@ async def send_heatmap(update: Update, context: ContextTypes.DEFAULT_TYPE, timef
     except Exception as e:
         error_message = f"Đã xảy ra lỗi: {e}"
         if is_callback:
-            await update.callback_query.message.edit_text(error_message)
+            await update.callback_query.message.reply_text(error_message)
         else:
             await update.message.reply_text(error_message)
 
@@ -816,8 +816,6 @@ async def heatmap_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     await query.answer()
     timeframe = query.data.split("_")[1]
     await send_heatmap(update, context, timeframe, is_callback=True)
-
-
 
 
 
