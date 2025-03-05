@@ -656,54 +656,74 @@ async def signal(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await update.message.reply_text(f"Đã xảy ra lỗi: {e}")
 
 async def get_coin_info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Lấy thông tin chi tiết của một đồng coin."""
+    """Lấy thông tin chi tiết của một đồng coin từ KuCoin."""
     try:
         if not context.args:
             await update.message.reply_text("Vui lòng cung cấp mã coin. Ví dụ: /info BTC")
             return
 
-        symbol = context.args[0].upper()
+        symbol = context.args[0].upper()  # Chuyển mã coin thành chữ hoa
 
-        # Gọi API CoinGecko để lấy thông tin về đồng coin
-        url = f"https://api.coingecko.com/api/v3/coins/markets"
-        params = {
-            "vs_currency": "usd",
-            "ids": symbol.lower(),
-            "order": "market_cap_desc",
-            "per_page": 1,
-            "page": 1,
-            "sparkline": "false",
-            "price_change_percentage": "1h,24h,7d"
-        }
-        response = requests.get(url, params=params)
-        data = response.json()
+        # Gọi API để lấy dữ liệu thị trường của coin
+        url = f"https://api.kucoin.com/api/v1/market/stats?symbol={symbol}-USDT"
+        response = requests.get(url).json()
 
-        if not data:
+        if "data" not in response or not response["data"]:
             await update.message.reply_text(f"Không tìm thấy thông tin cho {symbol}. Vui lòng kiểm tra lại.")
             return
 
-        coin = data[0]
-        name = coin.get("name", "Không có dữ liệu")
-        price = coin.get("current_price", "Không có dữ liệu")
-        high_24h = coin.get("high_24h", "Không có dữ liệu")
-        change_1h = coin.get("price_change_percentage_1h_in_currency", "Không có dữ liệu")
-        change_24h = coin.get("price_change_percentage_24h_in_currency", "Không có dữ liệu")
-        change_7d = coin.get("price_change_percentage_7d_in_currency", "Không có dữ liệu")
-        market_cap = coin.get("market_cap", "Không có dữ liệu")
-        volume_24h = coin.get("total_volume", "Không có dữ liệu")
-        circulating_supply = coin.get("circulating_supply", "Không có dữ liệu")
-        max_supply = coin.get("max_supply", "Không có dữ liệu") or "Không xác định"
+        market_data = response["data"]
 
+        # Trích xuất thông tin
+        price = float(market_data.get("last", 0))
+        high_24h = float(market_data.get("high", 0))
+        change_1h = float(market_data.get("changeRate", 0)) * 100  # Tính phần trăm thay đổi
+        change_24h = float(market_data.get("changePrice", 0)) / price * 100  # Tính phần trăm thay đổi 24h
+        volume_24h = float(market_data.get("volValue", 0))
+        market_cap = market_data.get("marketCap", "Không có dữ liệu")
+        circulating_supply = market_data.get("circulatingSupply", "Không có dữ liệu")
+        max_supply = market_data.get("maxSupply", "Không có dữ liệu")
+
+        # Lấy thay đổi giá trong 7 ngày
+        url_candles = f"https://api.kucoin.com/api/v1/market/candles?symbol={symbol}-USDT&type=1day&limit=7"
+        response_candles = requests.get(url_candles).json()
+
+        if "data" in response_candles and response_candles["data"]:
+            candles = response_candles["data"]
+            price_7d_ago = float(candles[0][2])  # Giá đóng cửa 7 ngày trước
+            change_7d = ((price - price_7d_ago) / price_7d_ago) * 100
+        else:
+            change_7d = "Không có dữ liệu"
+
+        # Format dữ liệu tài chính
+        def format_large_number(value):
+            if isinstance(value, (int, float)):
+                if value >= 1e12:
+                    return f"{value / 1e12:.2f}T"
+                elif value >= 1e9:
+                    return f"{value / 1e9:.2f}B"
+                elif value >= 1e6:
+                    return f"{value / 1e6:.2f}M"
+                else:
+                    return f"{value:,.2f}"
+            return value
+
+        market_cap = format_large_number(market_cap)
+        volume_24h = format_large_number(volume_24h)
+        circulating_supply = format_large_number(circulating_supply)
+        max_supply = format_large_number(max_supply)
+
+        # Tạo thông báo gửi về Telegram
         message = (
-            f"📊 *Thông tin về {name} ({symbol})* 📊\n"
+            f"📊 *Thông tin về {symbol} từ KuCoin* 📊\n"
             f"- 💰 Giá hiện tại: `{price:,.2f} USD`\n"
             f"- 🔝 Giá cao nhất 24h: `{high_24h:,.2f} USD`\n"
-            f"- 📈 Thay đổi giá (1h): `{change_1h:.2f}%`\n"
-            f"- 📉 Thay đổi giá (24h): `{change_24h:.2f}%`\n"
-            f"- 📊 Thay đổi giá (7 ngày): `{change_7d:.2f}%`\n"
-            f"- 🏦 Vốn hóa thị trường: `{market_cap:,.0f} USD`\n"
-            f"- 🔄 Doanh thu 24h: `{volume_24h:,.0f} USD`\n"
-            f"- 🔄 Lượng tiền lưu thông: `{circulating_supply:,.0f}`\n"
+            f"- 📈 Thay đổi giá (1 giờ): `{change_1h:.2f}%`\n"
+            f"- 📉 Thay đổi giá (24 giờ): `{change_24h:.2f}%`\n"
+            f"- 🔄 Thay đổi giá (7 ngày): `{change_7d:.2f}%`\n"
+            f"- 🏦 Vốn hóa thị trường: `{market_cap} USD`\n"
+            f"- 📊 Doanh thu 24h: `{volume_24h} USD`\n"
+            f"- 🔄 Lượng tiền lưu thông: `{circulating_supply}`\n"
             f"- ⛏️ Nguồn cung tối đa: `{max_supply}`\n"
         )
 
