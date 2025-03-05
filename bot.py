@@ -716,7 +716,7 @@ TIMEFRAME_MAPPING = {
 }
 
 async def send_heatmap(chat, timeframe: str):
-    """Tạo và gửi heatmap với màu đỏ/xanh, càng biến động mạnh càng đậm"""
+    """Tạo và gửi heatmap có màu giống hình mẫu"""
     try:
         print(f"📌 Đang tạo heatmap cho: {timeframe}")
 
@@ -758,6 +758,16 @@ async def send_heatmap(chat, timeframe: str):
         # 🔹 Dùng abs(price_change) để làm giá trị màu (càng lớn màu càng đậm)
         df["color_intensity"] = np.abs(df["price_change"])
 
+        # 🔹 Chỉnh hệ màu giống như heatmap mẫu
+        colorscale = [
+            [0, "rgb(153, 0, 0)"],  # Đỏ đậm (giảm rất mạnh)
+            [0.3, "rgb(204, 0, 0)"],  # Đỏ trung bình (giảm)
+            [0.5, "rgb(255, 102, 102)"],  # Đỏ nhạt (giảm nhẹ)
+            [0.5, "rgb(102, 255, 102)"],  # Xanh nhạt (tăng nhẹ)
+            [0.7, "rgb(0, 204, 0)"],  # Xanh trung bình (tăng)
+            [1, "rgb(0, 102, 0)"]   # Xanh đậm (tăng rất mạnh)
+        ]
+
         fig = go.Figure(data=go.Treemap(
             labels=df["symbol"].str.upper(),
             parents=[""] * len(df),
@@ -765,22 +775,15 @@ async def send_heatmap(chat, timeframe: str):
             text=[f"${p:,.2f}\n{c:.2f}%" for p, c in zip(df["current_price"], df["price_change"])],
             textinfo="label+text",
             marker=dict(
-                colors=df["price_change"],  # 🔹 Dùng giá trị thực tế để xác định màu
-                colorscale=[
-                    [0, "rgb(255, 153, 153)"],  # Đỏ nhạt (giảm nhẹ)
-                    [0.3, "rgb(204, 0, 0)"],     # Đỏ đậm (giảm mạnh)
-                    [0.5, "rgb(204, 0, 0)"],     # Đỏ đậm trung gian
-                    [0.5, "rgb(0, 153, 0)"],     # Xanh đậm trung gian
-                    [0.7, "rgb(153, 255, 153)"], # Xanh nhạt (tăng nhẹ)
-                    [1, "rgb(0, 153, 0)"]        # Xanh đậm (tăng mạnh)
-                ],
-                cmid=0,  # 🔹 Trung tâm ở 0 để làm mốc trung gian
+                colors=df["price_change"],
+                colorscale=colorscale,
+                cmid=0,
                 showscale=True
             )
         ))
 
         fig.update_layout(
-            title=f"📊 Heatmap of Top 100 Coins ({timeframe.upper()}) - Độ Đậm Theo Biến Động",
+            title=f"📊 Heatmap of Top 100 Coins ({timeframe.upper()}) - Màu sắc theo mẫu",
             template="plotly_dark"
         )
 
@@ -804,8 +807,8 @@ async def send_heatmap(chat, timeframe: str):
         await chat.send_message(f"❌ Đã xảy ra lỗi: {e}")
 
 async def heatmap(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Lệnh /heatmap tự động gửi 3 heatmap (1h, 1d, 1w) với độ đậm theo biến động"""
-    await update.message.reply_text("📊 Đang tạo heatmap có độ đậm theo biến động. Vui lòng chờ...")
+    """Lệnh /heatmap tự động gửi 3 heatmap (1h, 1d, 1w) với màu sắc theo mẫu"""
+    await update.message.reply_text("📊 Đang tạo heatmap với màu giống hình mẫu. Vui lòng chờ...")
     
     await send_heatmap(update.effective_chat, "1h")
     await send_heatmap(update.effective_chat, "1d")
