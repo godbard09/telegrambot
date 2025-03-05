@@ -655,23 +655,20 @@ async def signal(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     except Exception as e:
         await update.message.reply_text(f"Đã xảy ra lỗi: {e}")
 
-import ccxt
-import requests
-
 async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Lấy thông tin chi tiết về một đồng coin riêng biệt."""
+    """Lấy thông tin chi tiết về một đồng coin từ KuCoin."""
     try:
         symbol = context.args[0].upper() if context.args else None
         if not symbol:
             await update.message.reply_text("Vui lòng cung cấp mã coin. Ví dụ: /info BTC")
             return
 
-        # Lấy dữ liệu từ KuCoin
         exchange = ccxt.kucoin()
+
+        # Lấy tất cả cặp giao dịch để tìm USDT pair
         tickers = exchange.fetch_tickers()
-        
-        # Tìm cặp giao dịch phổ biến nhất (thường là USDT)
         trading_pair = None
+
         for pair in tickers.keys():
             if pair.startswith(f"{symbol}/USDT"):
                 trading_pair = pair
@@ -687,38 +684,26 @@ async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         change_24h = ticker.get('percentage', 0)  # Biến động giá trong 24 giờ
         volume_24h = ticker.get('quoteVolume', 0)  # Khối lượng giao dịch trong 24 giờ
 
-        # Lấy dữ liệu từ CoinGecko
-        coingecko_url = f"https://api.coingecko.com/api/v3/coins/markets"
-        params = {
-            "vs_currency": "usd",
-            "ids": symbol.lower(),
-            "order": "market_cap_desc",
-            "per_page": 1,
-            "page": 1,
-            "sparkline": "false"
-        }
-        response = requests.get(coingecko_url, params=params).json()
+        # Lấy thông tin coin từ fetch_currencies
+        currencies = exchange.fetch_currencies()
+        coin_info = currencies.get(symbol, {})
 
-        if not response:
-            await update.message.reply_text(f"Không tìm thấy dữ liệu từ CoinGecko cho {symbol}.")
-            return
-
-        coin_data = response[0]
-        market_cap = coin_data.get("market_cap", 0)
-        change_7d = coin_data.get("price_change_percentage_7d_in_currency", 0)
-        circulating_supply = coin_data.get("circulating_supply", 0)
-        max_supply = coin_data.get("max_supply", "Không xác định")
+        circulating_supply = coin_info.get("info", {}).get("circulatingSupply", "Không có dữ liệu")
+        max_supply = coin_info.get("info", {}).get("maxSupply", "Không xác định")
+        market_cap = (
+            float(current_price) * float(circulating_supply)
+            if isinstance(circulating_supply, (int, float)) else "Không có dữ liệu"
+        )
 
         # Tạo thông báo kết quả
         message = (
-            f"📊 *Thông tin {symbol}* 📊\n"
+            f"📊 *Thông tin {symbol} từ KuCoin* 📊\n"
             f"- 💰 Giá hiện tại: *{current_price:,.2f} USDT*\n"
             f"- 🔺 Thay đổi giá (1 giờ): *{change_1h:.2f}%*\n"
             f"- 🔺 Thay đổi giá (24 giờ): *{change_24h:.2f}%*\n"
-            f"- 🔺 Thay đổi giá (7 ngày): *{change_7d:.2f}%*\n"
-            f"- 🏦 Vốn hóa thị trường: *{market_cap:,.0f} USD*\n"
+            f"- 🏦 Vốn hóa thị trường: *{market_cap if isinstance(market_cap, str) else f'{market_cap:,.0f} USD'}*\n"
             f"- 📊 Khối lượng giao dịch 24h: *{volume_24h:,.0f} USDT*\n"
-            f"- 🔄 Lượng tiền đang lưu thông: *{circulating_supply:,.0f} {symbol}*\n"
+            f"- 🔄 Lượng tiền đang lưu thông: *{circulating_supply} {symbol}*\n"
             f"- 🚀 Nguồn cung tối đa: *{max_supply} {symbol}*\n"
         )
 
@@ -726,6 +711,7 @@ async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     except Exception as e:
         await update.message.reply_text(f"Đã xảy ra lỗi: {e}")
+
 
 
 
