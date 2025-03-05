@@ -716,14 +716,14 @@ TIMEFRAME_MAPPING = {
 }
 
 async def send_heatmap(chat, timeframe: str):
-    """Tạo và gửi heatmap theo timeframe được chọn."""
+    """Tạo và gửi heatmap theo vốn hóa thị trường."""
     try:
         print(f"📌 Đang tạo heatmap cho: {timeframe}")
 
         url = "https://api.coingecko.com/api/v3/coins/markets"
         params = {
             "vs_currency": "usd",
-            "order": "market_cap_desc",
+            "order": "market_cap_desc",  # 🔹 Sắp xếp theo vốn hóa lớn nhất
             "per_page": 100,
             "page": 1,
             "sparkline": False,
@@ -748,13 +748,15 @@ async def send_heatmap(chat, timeframe: str):
 
         df["price_change"] = df[price_change_column]
         df = df.dropna(subset=["price_change"])
-        df = df.sort_values("price_change", ascending=False)
+        
+        # 🔹 Sắp xếp theo vốn hóa thị trường lớn nhất → nhỏ nhất
+        df = df.sort_values("market_cap", ascending=False)
 
         fig = go.Figure(data=go.Treemap(
             labels=df["symbol"].str.upper(),
             parents=[""] * len(df),
-            values=abs(df["price_change"]),
-            text=[f"${p:.2f}\n{c:.2f}%" for p, c in zip(df["current_price"], df["price_change"])],
+            values=df["market_cap"],  # 🔹 Hiển thị kích thước theo vốn hóa
+            text=[f"${p:,.2f}\n{c:.2f}%" for p, c in zip(df["current_price"], df["price_change"])],
             textinfo="label+text",
             marker=dict(
                 colors=df["price_change"],
@@ -764,7 +766,7 @@ async def send_heatmap(chat, timeframe: str):
         ))
 
         fig.update_layout(
-            title=f"📊 Heatmap of Top 100 Coins ({timeframe.upper()})",
+            title=f"📊 Heatmap of Top 100 Coins ({timeframe.upper()}) - Theo Vốn Hóa",
             template="plotly_dark"
         )
 
@@ -789,12 +791,13 @@ async def send_heatmap(chat, timeframe: str):
         await chat.send_message(f"❌ Đã xảy ra lỗi: {e}")
 
 async def heatmap(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Lệnh /heatmap tự động gửi 3 heatmap (1h, 1d, 1w)"""
-    await update.message.reply_text("📊 Đang tạo heatmap cho 1h, 1d, 1w. Vui lòng chờ...")
+    """Lệnh /heatmap tự động gửi 3 heatmap (1h, 1d, 1w) theo vốn hóa"""
+    await update.message.reply_text("📊 Đang tạo heatmap theo vốn hóa cho 1h, 1d, 1w. Vui lòng chờ...")
     
     await send_heatmap(update.effective_chat, "1h")
     await send_heatmap(update.effective_chat, "1d")
     await send_heatmap(update.effective_chat, "1w")
+
 
 
 async def set_webhook(application: Application):
