@@ -709,7 +709,7 @@ async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     except Exception as e:
         await update.message.reply_text(f"Đã xảy ra lỗi: {e}")
 
-# Ánh xạ timeframe sang API CoinGecko
+
 TIMEFRAME_MAPPING = {
     "1h": "price_change_percentage_1h_in_currency",
     "1d": "price_change_percentage_24h_in_currency",
@@ -721,9 +721,8 @@ async def heatmap(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await send_heatmap(update, context, timeframe="1d")
 
 async def send_heatmap(update: Update, context: ContextTypes.DEFAULT_TYPE, timeframe: str):
-    """Gửi heatmap với tùy chọn timeframe (1h, 1d, 1w)."""
+    """Gửi heatmap dưới dạng file HTML với tùy chọn timeframe (1h, 1d, 1w)."""
     try:
-        # Gọi API lấy dữ liệu từ CoinGecko
         url = "https://api.coingecko.com/api/v3/coins/markets"
         params = {
             "vs_currency": "usd",
@@ -740,21 +739,16 @@ async def send_heatmap(update: Update, context: ContextTypes.DEFAULT_TYPE, timef
             await update.message.reply_text("Không thể lấy dữ liệu từ CoinGecko. Vui lòng thử lại sau!")
             return
 
-        # Lấy tên đúng của cột thay đổi giá
         price_change_column = TIMEFRAME_MAPPING.get(timeframe)
         if price_change_column is None:
             await update.message.reply_text("Sai khoảng thời gian! Vui lòng chọn 1h, 1d hoặc 1w.")
             return
 
-        # Xử lý dữ liệu
         df = pd.DataFrame(data)
-        df["price_change"] = df[price_change_column]  # Lấy biến động giá theo thời gian
-        df = df.dropna(subset=["price_change"])  # Loại bỏ coin không có dữ liệu
-
-        # Sắp xếp để hiển thị đẹp hơn
+        df["price_change"] = df[price_change_column]
+        df = df.dropna(subset=["price_change"])
         df = df.sort_values("price_change", ascending=False)
 
-        # Vẽ Heatmap bằng Plotly
         fig = go.Figure(data=go.Treemap(
             labels=df["symbol"].str.upper(),
             parents=[""] * len(df),
@@ -763,7 +757,7 @@ async def send_heatmap(update: Update, context: ContextTypes.DEFAULT_TYPE, timef
             textinfo="label+text",
             marker=dict(
                 colors=df["price_change"],
-                colorscale="RdYlGn",  # Màu đỏ → vàng → xanh
+                colorscale="RdYlGn",
                 showscale=True
             )
         ))
@@ -773,11 +767,10 @@ async def send_heatmap(update: Update, context: ContextTypes.DEFAULT_TYPE, timef
             template="plotly_dark"
         )
 
-        # Lưu ảnh và gửi qua Telegram
-        img_path = "/mnt/data/heatmap.png"
-        fig.write_image(img_path)
+        # Lưu file dưới dạng HTML
+        html_path = "/mnt/data/heatmap.html"
+        fig.write_html(html_path)
 
-        # Tạo Inline Keyboard để chọn timeframe
         keyboard = [
             [
                 InlineKeyboardButton("1h", callback_data="heatmap_1h"),
@@ -787,11 +780,8 @@ async def send_heatmap(update: Update, context: ContextTypes.DEFAULT_TYPE, timef
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
 
-        # Gửi ảnh và inline button
-        if update.callback_query:
-            await update.callback_query.message.reply_photo(photo=open(img_path, "rb"), reply_markup=reply_markup)
-        else:
-            await update.message.reply_photo(photo=open(img_path, "rb"), reply_markup=reply_markup)
+        # Gửi file HTML qua Telegram
+        await update.message.reply_document(document=open(html_path, "rb"), filename="heatmap.html", reply_markup=reply_markup)
 
     except Exception as e:
         await update.message.reply_text(f"Đã xảy ra lỗi: {e}")
@@ -800,8 +790,9 @@ async def heatmap_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     """Xử lý khi người dùng bấm vào nút 1h, 1d, 1w"""
     query = update.callback_query
     await query.answer()
-    timeframe = query.data.split("_")[1]  # Lấy timeframe từ callback_data
+    timeframe = query.data.split("_")[1]
     await send_heatmap(update, context, timeframe)
+
 
 
 
