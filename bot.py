@@ -716,7 +716,7 @@ TIMEFRAME_MAPPING = {
 }
 
 async def send_heatmap(chat, timeframe: str):
-    """Tạo và gửi heatmap theo vốn hóa thị trường."""
+    """Tạo và gửi heatmap có kích thước khác nhau nhưng không quá chênh lệch"""
     try:
         print(f"📌 Đang tạo heatmap cho: {timeframe}")
 
@@ -748,14 +748,17 @@ async def send_heatmap(chat, timeframe: str):
 
         df["price_change"] = df[price_change_column]
         df = df.dropna(subset=["price_change"])
-        
+
         # 🔹 Sắp xếp theo vốn hóa thị trường lớn nhất → nhỏ nhất
         df = df.sort_values("market_cap", ascending=False)
+
+        # 🔹 Dùng căn bậc hai của vốn hóa để giảm khoảng cách giữa coin lớn và nhỏ
+        df["size"] = np.sqrt(df["market_cap"])  
 
         fig = go.Figure(data=go.Treemap(
             labels=df["symbol"].str.upper(),
             parents=[""] * len(df),
-            values=df["market_cap"],  # 🔹 Hiển thị kích thước theo vốn hóa
+            values=df["size"],  # 🔹 Kích thước theo sqrt(vốn hóa) để giảm chênh lệch
             text=[f"${p:,.2f}\n{c:.2f}%" for p, c in zip(df["current_price"], df["price_change"])],
             textinfo="label+text",
             marker=dict(
@@ -766,14 +769,13 @@ async def send_heatmap(chat, timeframe: str):
         ))
 
         fig.update_layout(
-            title=f"📊 Heatmap of Top 100 Coins ({timeframe.upper()}) - Theo Vốn Hóa",
+            title=f"📊 Heatmap of Top 100 Coins ({timeframe.upper()}) - Kích Thước Cân Bằng",
             template="plotly_dark"
         )
 
         html_path = f"heatmap_{timeframe}.html"
         fig.write_html(html_path)
 
-        # Kiểm tra xem file có được tạo không
         if not os.path.exists(html_path):
             await chat.send_message(f"❌ Lỗi khi tạo file heatmap_{timeframe}.html. Vui lòng thử lại!")
             return
@@ -791,8 +793,8 @@ async def send_heatmap(chat, timeframe: str):
         await chat.send_message(f"❌ Đã xảy ra lỗi: {e}")
 
 async def heatmap(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Lệnh /heatmap tự động gửi 3 heatmap (1h, 1d, 1w) theo vốn hóa"""
-    await update.message.reply_text("📊 Đang tạo heatmap theo vốn hóa cho 1h, 1d, 1w. Vui lòng chờ...")
+    """Lệnh /heatmap tự động gửi 3 heatmap (1h, 1d, 1w) với kích thước cân bằng"""
+    await update.message.reply_text("📊 Đang tạo heatmap với kích thước cân bằng. Vui lòng chờ...")
     
     await send_heatmap(update.effective_chat, "1h")
     await send_heatmap(update.effective_chat, "1d")
