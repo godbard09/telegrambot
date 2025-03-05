@@ -667,18 +667,21 @@ async def heatmap(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
         # Lấy dữ liệu từ KuCoin
         markets = exchange.fetch_tickers()
-        data = []
 
-        for symbol, ticker in markets.items():
-            if '/USDT' in symbol and 'percentage' in ticker:
-                data.append((symbol, ticker['percentage']))
+        # Lọc ra các cặp giao dịch USDT có dữ liệu hợp lệ
+        data = [
+            (symbol, ticker['percentage'])
+            for symbol, ticker in markets.items()
+            if '/USDT' in symbol and isinstance(ticker.get('percentage'), (int, float))
+        ]
+
+        # Kiểm tra nếu không có dữ liệu hợp lệ
+        if not data:
+            await update.message.reply_text("Không có dữ liệu hợp lệ để hiển thị heatmap.")
+            return
 
         # Lấy top 100 theo biến động giá
         top_data = sorted(data, key=lambda x: abs(x[1]), reverse=True)[:100]
-
-        if not top_data:
-            await update.message.reply_text("Không có dữ liệu để hiển thị heatmap.")
-            return
 
         # Tạo danh sách tên coin và giá trị phần trăm thay đổi
         labels = [item[0] for item in top_data]
@@ -734,6 +737,7 @@ async def heatmap(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     except Exception as e:
         await update.message.reply_text(f"Đã xảy ra lỗi: {e}")
+
 
 async def set_webhook(application: Application):
     """Thiết lập Webhook."""
