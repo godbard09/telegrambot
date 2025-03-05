@@ -766,8 +766,14 @@ async def send_heatmap(chat, timeframe: str):
             textinfo="label+text",
             marker=dict(
                 colors=df["price_change"],  # 🔹 Dùng giá trị thực tế để xác định màu
-                colorscale=[[0, "lightred"], [0.3, "red"], [0.5, "red"], 
-                            [0.5, "green"], [0.7, "darkgreen"], [1, "green"]],  # 🔹 Chỉ có 2 màu, tăng đậm dần
+                colorscale=[
+                    [0, "rgb(255, 153, 153)"],  # Đỏ nhạt (giảm nhẹ)
+                    [0.3, "rgb(204, 0, 0)"],     # Đỏ đậm (giảm mạnh)
+                    [0.5, "rgb(204, 0, 0)"],     # Đỏ đậm trung gian
+                    [0.5, "rgb(0, 153, 0)"],     # Xanh đậm trung gian
+                    [0.7, "rgb(153, 255, 153)"], # Xanh nhạt (tăng nhẹ)
+                    [1, "rgb(0, 153, 0)"]        # Xanh đậm (tăng mạnh)
+                ],
                 cmid=0,  # 🔹 Trung tâm ở 0 để làm mốc trung gian
                 showscale=True
             )
@@ -804,7 +810,6 @@ async def heatmap(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await send_heatmap(update.effective_chat, "1h")
     await send_heatmap(update.effective_chat, "1d")
     await send_heatmap(update.effective_chat, "1w")
-
 
 
 
