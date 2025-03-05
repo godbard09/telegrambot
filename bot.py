@@ -32,7 +32,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         "Gõ /top để xem top 10 cặp giao dịch tăng, giảm mạnh nhất 24 giờ qua.\n"
         "Gõ /signal <mã giao dịch> để xem lịch sử tín hiệu mua bán trong 7 ngày qua.\n"
         "Gõ /smarttrade <mã giao dịch> để xem thông tin và tín hiệu mua bán mới nhất.\n"
-        "Gõ /list để xem top 10 cặp giao dịch có tín hiệu mua bán gần đây."
+        "Gõ /list để xem top 10 cặp giao dịch có tín hiệu mua bán gần đây.\n"
+        "Gõ /info để xem thông tin đồng coin."
     )
 
 
@@ -653,6 +654,63 @@ async def signal(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     except Exception as e:
         await update.message.reply_text(f"Đã xảy ra lỗi: {e}")
 
+async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Hiển thị thông tin chi tiết về một coin."""
+    try:
+        # Kiểm tra xem người dùng có cung cấp mã coin hay không
+        if not context.args:
+            await update.message.reply_text("Vui lòng cung cấp mã coin. Ví dụ: /info BTC")
+            return
+
+        symbol = context.args[0].upper()  # Chuyển mã coin thành chữ hoa
+
+        # Lấy dữ liệu thị trường
+        markets = exchange.load_markets()
+        ticker = f"{symbol}/USDT"  # Chuyển coin thành cặp giao dịch với USDT
+        if ticker not in markets:
+            await update.message.reply_text(f"Mã coin không hợp lệ: {symbol}. Vui lòng kiểm tra lại.")
+            return
+
+        # Lấy thông tin giá và biến động giá
+        ticker_data = exchange.fetch_ticker(ticker)
+        price = ticker_data['last']
+        high_24h = ticker_data['high']
+        change_1h = ticker_data.get('change', 0)  # Một số sàn có thể không cung cấp change theo 1h
+        change_24h = ticker_data['percentage']
+        volume_24h = ticker_data.get('quoteVolume', 0)
+
+        # Lấy thông tin vốn hóa thị trường, cung lưu hành và cung tối đa
+        market_data = exchange.fetch_tickers()
+        coin_info = market_data.get(ticker, {})
+
+        circulating_supply = coin_info.get('info', {}).get('circulatingSupply', 'Không rõ')
+        max_supply = coin_info.get('info', {}).get('maxSupply', 'Không rõ')
+        market_cap = coin_info.get('info', {}).get('marketCap', 'Không rõ')
+
+        # Xử lý dữ liệu nếu có giá trị None
+        circulating_supply = f"{circulating_supply:,.0f}" if circulating_supply != 'Không rõ' else "Không rõ"
+        max_supply = f"{max_supply:,.0f}" if max_supply != 'Không rõ' else "Không rõ"
+        market_cap = f"${market_cap:,.2f}" if market_cap != 'Không rõ' else "Không rõ"
+
+        # Gửi thông tin về coin
+        message = escape_markdown(
+            f"📊 *Thông tin chi tiết về {symbol}:*\n"
+            f"- 💰 *Giá hiện tại:* `{price:.2f} USDT`\n"
+            f"- 📈 *Giá cao nhất 24h:* `{high_24h:.2f} USDT`\n"
+            f"- 🔄 *Thay đổi giá (1 giờ):* `{change_1h:.2f}%`\n"
+            f"- 🔄 *Thay đổi giá (24 giờ):* `{change_24h:.2f}%`\n"
+            f"- 🔄 *Doanh thu 24 giờ:* `{volume_24h:,.2f} USDT`\n"
+            f"- 🏦 *Vốn hóa thị trường:* `{market_cap}`\n"
+            f"- 🔄 *Lượng tiền đang lưu thông:* `{circulating_supply}` {symbol}\n"
+            f"- 🔄 *Nguồn cung tối đa:* `{max_supply}` {symbol}",
+            ignore=["*"]
+        )
+
+        await update.message.reply_text(message, parse_mode="MarkdownV2")
+
+    except Exception as e:
+        await update.message.reply_text(f"Đã xảy ra lỗi: {e}")
+
 
 async def set_webhook(application: Application):
     """Thiết lập Webhook."""
@@ -673,6 +731,7 @@ def main():
     application.add_handler(CommandHandler("top", top))  # Thêm handler cho /top
     application.add_handler(CommandHandler("list", list_signals))
     application.add_handler(CommandHandler("smarttrade", current_price))  # Thêm handler cho /cap
+    application.add_handler(CommandHandler("info", info))
     application.add_handler(CallbackQueryHandler(button))  # Thêm handler cho nút bấm từ /top
 
     # Chạy webhook
