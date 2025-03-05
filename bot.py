@@ -768,7 +768,7 @@ async def send_heatmap(chat, timeframe: str):
             template="plotly_dark"
         )
 
-        html_path = "heatmap.html"
+        html_path = f"heatmap_{timeframe}.html"
         fig.write_html(html_path)
 
         # Kiểm tra xem file có được tạo không
@@ -787,9 +787,11 @@ async def send_heatmap(chat, timeframe: str):
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
 
-        await chat.send_document(document=open(html_path, "rb"), filename="heatmap.html", reply_markup=reply_markup)
+        await chat.send_document(document=open(html_path, "rb"), filename=html_path, reply_markup=reply_markup)
 
-        os.remove(html_path)  # Xóa file sau khi gửi
+        # Xóa file sau khi gửi xong (chờ 10 giây)
+        await asyncio.sleep(10)
+        os.remove(html_path)
         print(f"🗑️ File {html_path} đã được xóa.")  # Debug
 
     except Exception as e:
