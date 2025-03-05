@@ -709,7 +709,6 @@ async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     except Exception as e:
         await update.message.reply_text(f"Đã xảy ra lỗi: {e}")
 
-
 TIMEFRAME_MAPPING = {
     "1h": "price_change_percentage_1h_in_currency",
     "1d": "price_change_percentage_24h_in_currency",
@@ -767,9 +766,16 @@ async def send_heatmap(update: Update, context: ContextTypes.DEFAULT_TYPE, timef
             template="plotly_dark"
         )
 
-        # Lưu file dưới dạng HTML
+        # Đường dẫn file HTML
         html_path = "/mnt/data/heatmap.html"
+
+        # Tạo file HTML
         fig.write_html(html_path)
+
+        # Kiểm tra xem file có được tạo không
+        if not os.path.exists(html_path):
+            await update.message.reply_text("Lỗi khi tạo file heatmap.html. Vui lòng thử lại!")
+            return
 
         keyboard = [
             [
@@ -792,6 +798,7 @@ async def heatmap_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     await query.answer()
     timeframe = query.data.split("_")[1]
     await send_heatmap(update, context, timeframe)
+
 
 
 
