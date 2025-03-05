@@ -731,12 +731,12 @@ async def send_heatmap(chat, timeframe: str):
         data = response.json()
 
         if response.status_code != 200 or not data:
-            await chat.send_message("Không thể lấy dữ liệu từ CoinGecko. Vui lòng thử lại sau!")
+            await chat.send_message("❌ Không thể lấy dữ liệu từ CoinGecko. Vui lòng thử lại sau!")
             return
 
         price_change_column = TIMEFRAME_MAPPING.get(timeframe)
         if price_change_column is None:
-            await chat.send_message("Sai khung thời gian! Vui lòng chọn 1h, 1d hoặc 1w.")
+            await chat.send_message("⚠️ Sai khung thời gian! Vui lòng chọn 1h, 1d hoặc 1w.")
             return
 
         df = pd.DataFrame(data)
@@ -762,18 +762,18 @@ async def send_heatmap(chat, timeframe: str):
             template="plotly_dark"
         )
 
-        html_path = "heatmap.html"
+        html_path = "/mnt/data/heatmap.html"
         fig.write_html(html_path)
 
         if not os.path.exists(html_path):
-            await chat.send_message("Lỗi khi tạo file heatmap.html. Vui lòng thử lại!")
+            await chat.send_message("❌ Lỗi khi tạo file heatmap.html. Vui lòng thử lại!")
             return
 
         keyboard = [
             [
-                InlineKeyboardButton("1h", callback_data="heatmap_1h"),
-                InlineKeyboardButton("1d", callback_data="heatmap_1d"),
-                InlineKeyboardButton("1w", callback_data="heatmap_1w"),
+                InlineKeyboardButton("🔹 1h", callback_data="heatmap_1h"),
+                InlineKeyboardButton("🔹 1d", callback_data="heatmap_1d"),
+                InlineKeyboardButton("🔹 1w", callback_data="heatmap_1w"),
             ]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
@@ -783,11 +783,12 @@ async def send_heatmap(chat, timeframe: str):
         os.remove(html_path)  # Xóa file sau khi gửi
 
     except Exception as e:
-        await chat.send_message(f"Đã xảy ra lỗi: {e}")
+        await chat.send_message(f"❌ Đã xảy ra lỗi: {e}")
 
 async def heatmap(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Lệnh /heatmap gửi bản đồ nhiệt mặc định (1 ngày) hoặc theo thời gian nhập"""
-    timeframe = "1h"  # Mặc định là 1 ngày
+    print(f"📌 /heatmap được gọi với context.args: {context.args}")  # Debug
+    timeframe = "1d"  # Mặc định là 1 ngày
     if context.args:
         timeframe = context.args[0] if context.args[0] in TIMEFRAME_MAPPING else "1d"
     await send_heatmap(update.effective_chat, timeframe)
@@ -796,6 +797,10 @@ async def heatmap_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     """Khi bấm vào nút 1h, 1d, 1w, bot sẽ gọi lại heatmap với thời gian tương ứng"""
     query = update.callback_query
     await query.answer()
+    
+    # Debug xem callback đang nhận giá trị gì
+    print(f"📌 Callback nhận được: {query.data}")  
+
     timeframe = query.data.split("_")[1]  # Lấy giá trị 1h, 1d, 1w
     await send_heatmap(update.effective_chat, timeframe)  # Gọi lại heatmap với thời gian tương ứng
 
