@@ -821,7 +821,7 @@ async def heatmap(update, context):
 
 
 async def desc(update, context):
-    """Lấy thông tin chi tiết về đồng coin từ CoinGecko (bao gồm website, explorers, wallets, community)."""
+    """Lấy thông tin chi tiết về đồng coin từ CoinGecko (bao gồm website, wallets, community)."""
     try:
         if not context.args:
             await update.message.reply_text("Vui lòng cung cấp mã coin. Ví dụ: /desc BTC")
@@ -847,24 +847,41 @@ async def desc(update, context):
         description_en = data_coingecko["description"].get("en")
         description = description_vi if description_vi else description_en if description_en else "Không có mô tả."
 
-        # 🔹 Lấy thêm thông tin website, explorers, wallets, community
+        # 🔹 Lấy thông tin website
         website = data_coingecko.get("links", {}).get("homepage", ["Không có thông tin"])[0]
-        explorers = ", ".join(data_coingecko.get("links", {}).get("blockchain_site", ["Không có thông tin"])[:3])
-        wallets = ", ".join(data_coingecko.get("links", {}).get("wallets", ["Không có thông tin"]))
-        community = ", ".join(data_coingecko.get("links", {}).get("twitter_screen_name", ["Không có thông tin"]))
 
-        # 🔹 Định dạng lại thông tin giống ảnh mẫu
+        # 🔹 Lấy thông tin ví hỗ trợ (chỉ lấy tên)
+        wallets_raw = data_coingecko.get("links", {}).get("wallets", [])
+        wallets = ", ".join([wallet.split("/")[-1] for wallet in wallets_raw if wallet]) if wallets_raw else "Không có thông tin"
+
+        # 🔹 Lấy thông tin cộng đồng (hiển thị link)
+        community_links = []
+        links = data_coingecko.get("links", {})
+
+        if links.get("twitter_screen_name"):
+            community_links.append(f"🐦 [Twitter](https://twitter.com/{links['twitter_screen_name']})")
+        if links.get("facebook_username"):
+            community_links.append(f"📘 [Facebook](https://www.facebook.com/{links['facebook_username']})")
+        if links.get("telegram_channel_identifier"):
+            community_links.append(f"📢 [Telegram](https://t.me/{links['telegram_channel_identifier']})")
+        if links.get("subreddit_url"):
+            community_links.append(f"👽 [Reddit]({links['subreddit_url']})")
+        if links.get("discord_url"):
+            community_links.append(f"🎮 [Discord]({links['discord_url']})")
+
+        community = "\n".join(community_links) if community_links else "Không có thông tin"
+
+        # 🔹 Định dạng lại thông tin
         message = (
             f"*{coin_name} - ${symbol}*\n\n"
             f"📌 *Categories*: {categories}\n\n"
             f"📖 *Description*: {description}\n\n"
             f"🌐 *Website*: {website}\n"
-            f"🔎 *Explorers*: {explorers}\n"
             f"🏦 *Wallets*: {wallets}\n"
-            f"🏛️ *Community*: {community}"
+            f"🏛️ *Community*:\n{community}"
         )
 
-        await update.message.reply_text(message, parse_mode="Markdown")
+        await update.message.reply_text(message, parse_mode="Markdown", disable_web_page_preview=True)
 
     except Exception as e:
         await update.message.reply_text(f"Đã xảy ra lỗi: {e}")
