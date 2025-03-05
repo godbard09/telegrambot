@@ -655,62 +655,52 @@ async def signal(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     except Exception as e:
         await update.message.reply_text(f"Đã xảy ra lỗi: {e}")
 
+
 async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Lấy thông tin chi tiết về một đồng coin từ KuCoin."""
+    """Lấy thông tin chi tiết về một đồng coin từ CoinGecko."""
     try:
-        symbol = context.args[0].upper() if context.args else None
-        if not symbol:
+        if not context.args:
             await update.message.reply_text("Vui lòng cung cấp mã coin. Ví dụ: /info BTC")
             return
 
-        exchange = ccxt.kucoin()
+        coin_id = context.args[0].lower()  # Lấy mã coin từ lệnh người dùng
+        url = f'https://api.coingecko.com/api/v3/coins/{coin_id}'
 
-        # Lấy tất cả cặp giao dịch để tìm USDT pair
-        tickers = exchange.fetch_tickers()
-        trading_pair = None
-
-        for pair in tickers.keys():
-            if pair.startswith(f"{symbol}/USDT"):
-                trading_pair = pair
-                break
-
-        if not trading_pair:
-            await update.message.reply_text(f"Không tìm thấy dữ liệu cho coin {symbol}.")
+        response = requests.get(url)
+        if response.status_code != 200:
+            await update.message.reply_text("Không tìm thấy thông tin về đồng coin này. Vui lòng kiểm tra lại.")
             return
 
-        ticker = tickers[trading_pair]
-        current_price = ticker['last']
-        change_1h = ticker.get('change', 0)  # Biến động giá trong 1 giờ
-        change_24h = ticker.get('percentage', 0)  # Biến động giá trong 24 giờ
-        volume_24h = ticker.get('quoteVolume', 0)  # Khối lượng giao dịch trong 24 giờ
+        data = response.json()
 
-        # Lấy thông tin coin từ fetch_currencies
-        currencies = exchange.fetch_currencies()
-        coin_info = currencies.get(symbol, {})
+        price_usd = data['market_data']['current_price']['usd']
+        high_24h = data['market_data']['high_24h']['usd']
+        change_1h = data['market_data']['price_change_percentage_1h_in_currency']['usd']
+        change_24h = data['market_data']['price_change_percentage_24h_in_currency']['usd']
+        change_7d = data['market_data']['price_change_percentage_7d_in_currency']['usd']
+        market_cap = data['market_data']['market_cap']['usd']
+        volume_24h = data['market_data']['total_volume']['usd']
+        circulating_supply = data['market_data']['circulating_supply']
+        max_supply = data['market_data']['max_supply']
 
-        circulating_supply = coin_info.get("info", {}).get("circulatingSupply", "Không có dữ liệu")
-        max_supply = coin_info.get("info", {}).get("maxSupply", "Không xác định")
-        market_cap = (
-            float(current_price) * float(circulating_supply)
-            if isinstance(circulating_supply, (int, float)) else "Không có dữ liệu"
-        )
-
-        # Tạo thông báo kết quả
         message = (
-            f"📊 *Thông tin {symbol} từ KuCoin* 📊\n"
-            f"- 💰 Giá hiện tại: *{current_price:,.2f} USDT*\n"
-            f"- 🔺 Thay đổi giá (1 giờ): *{change_1h:.2f}%*\n"
-            f"- 🔺 Thay đổi giá (24 giờ): *{change_24h:.2f}%*\n"
-            f"- 🏦 Vốn hóa thị trường: *{market_cap if isinstance(market_cap, str) else f'{market_cap:,.0f} USD'}*\n"
-            f"- 📊 Khối lượng giao dịch 24h: *{volume_24h:,.0f} USDT*\n"
-            f"- 🔄 Lượng tiền đang lưu thông: *{circulating_supply} {symbol}*\n"
-            f"- 🚀 Nguồn cung tối đa: *{max_supply} {symbol}*\n"
+            f"📊 *Thông tin về {data['name']} ({data['symbol'].upper()})*:\n"
+            f"💰 Giá hiện tại: *${price_usd:,.2f}*\n"
+            f"🔺 Giá cao nhất 24h: *${high_24h:,.2f}*\n"
+            f"📈 Thay đổi giá (1 giờ): *{change_1h:.2f}%*\n"
+            f"📈 Thay đổi giá (24 giờ): *{change_24h:.2f}%*\n"
+            f"📈 Thay đổi giá (7 ngày): *{change_7d:.2f}%*\n"
+            f"🏦 Vốn hóa thị trường: *${market_cap:,.2f}*\n"
+            f"📊 Doanh thu 24 giờ: *${volume_24h:,.2f}*\n"
+            f"🔄 Lượng tiền đang lưu thông: *{circulating_supply:,.0f} {data['symbol'].upper()}*\n"
+            f"🛑 Nguồn cung tối đa: *{max_supply:,.0f} {data['symbol'].upper()}*\n"
         )
 
-        await update.message.reply_text(escape_markdown(message, ignore=["*"]), parse_mode="MarkdownV2")
+        await update.message.reply_text(message, parse_mode="Markdown")
 
     except Exception as e:
         await update.message.reply_text(f"Đã xảy ra lỗi: {e}")
+
 
 
 
