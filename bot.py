@@ -716,7 +716,7 @@ TIMEFRAME_MAPPING = {
 }
 
 async def send_heatmap(chat, timeframe: str):
-    """Tạo và gửi heatmap có màu giống hình mẫu"""
+    """Tạo và gửi heatmap có chữ giống mẫu"""
     try:
         print(f"📌 Đang tạo heatmap cho: {timeframe}")
 
@@ -768,12 +768,26 @@ async def send_heatmap(chat, timeframe: str):
             [1, "rgb(0, 102, 0)"]   # Xanh đậm (tăng rất mạnh)
         ]
 
+        # 🔹 Điều chỉnh kích thước chữ theo độ lớn ô
+        df["text_size"] = df["size"] / max(df["size"]) * 24
+
+        # 🔹 Chỉnh màu chữ: Nền đỏ → chữ trắng, Nền xanh → chữ đen
+        df["text_color"] = np.where(df["price_change"] > 0, "black", "white")
+
+        # 🔹 Format chữ trong từng ô
+        df["text"] = df["symbol"].str.upper() + "\n" + \
+                     df["current_price"].apply(lambda x: f"${x:,.2f}") + "\n" + \
+                     df["price_change"].apply(lambda x: f"{x:.2f}%")
+
         fig = go.Figure(data=go.Treemap(
-            labels=df["symbol"].str.upper(),
+            labels=df["text"],
             parents=[""] * len(df),
             values=df["size"],
-            text=[f"${p:,.2f}\n{c:.2f}%" for p, c in zip(df["current_price"], df["price_change"])],
-            textinfo="label+text",
+            textinfo="label+text+value",
+            textfont=dict(
+                size=df["text_size"],  # 🔹 Chỉnh kích thước chữ theo ô
+                color=df["text_color"]  # 🔹 Chỉnh màu chữ theo nền
+            ),
             marker=dict(
                 colors=df["price_change"],
                 colorscale=colorscale,
@@ -783,7 +797,7 @@ async def send_heatmap(chat, timeframe: str):
         ))
 
         fig.update_layout(
-            title=f"📊 Heatmap of Top 100 Coins ({timeframe.upper()}) - Màu sắc theo mẫu",
+            title=f"📊 Heatmap of Top 100 Coins ({timeframe.upper()}) - Văn bản hiển thị đẹp hơn",
             template="plotly_dark"
         )
 
@@ -807,8 +821,8 @@ async def send_heatmap(chat, timeframe: str):
         await chat.send_message(f"❌ Đã xảy ra lỗi: {e}")
 
 async def heatmap(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Lệnh /heatmap tự động gửi 3 heatmap (1h, 1d, 1w) với màu sắc theo mẫu"""
-    await update.message.reply_text("📊 Đang tạo heatmap với màu giống hình mẫu. Vui lòng chờ...")
+    """Lệnh /heatmap tự động gửi 3 heatmap (1h, 1d, 1w) với chữ hiển thị đẹp hơn"""
+    await update.message.reply_text("📊 Đang tạo heatmap với chữ hiển thị rõ hơn. Vui lòng chờ...")
     
     await send_heatmap(update.effective_chat, "1h")
     await send_heatmap(update.effective_chat, "1d")
