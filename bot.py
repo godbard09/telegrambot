@@ -821,7 +821,7 @@ async def heatmap(update, context):
 
 
 async def desc(update, context):
-    """Lấy thông tin chi tiết về đồng coin từ CoinGecko (bao gồm website, wallets, community)."""
+    """Lấy thông tin chi tiết về đồng coin từ CoinGecko (bao gồm website và community)."""
     try:
         if not context.args:
             await update.message.reply_text("Vui lòng cung cấp mã coin. Ví dụ: /desc BTC")
@@ -850,22 +850,18 @@ async def desc(update, context):
         # 🔹 Lấy thông tin website
         website = data_coingecko.get("links", {}).get("homepage", ["Không có thông tin"])[0]
 
-        # 🔹 Lấy thông tin ví hỗ trợ (chỉ lấy tên)
-        wallets_raw = data_coingecko.get("links", {}).get("wallets", [])
-        wallets = ", ".join([wallet.split("/")[-1] for wallet in wallets_raw if wallet]) if wallets_raw else "Không có thông tin"
-
         # 🔹 Lấy thông tin cộng đồng (hiển thị link)
         community_links = []
         links = data_coingecko.get("links", {})
 
         if links.get("twitter_screen_name"):
-            community_links.append(f"🐦 [Twitter](https://twitter.com/{links['twitter_screen_name']})")
+            community_links.append(f"❌ [X](https://twitter.com/{links['twitter_screen_name']})")
         if links.get("facebook_username"):
-            community_links.append(f"📘 [Facebook](https://www.facebook.com/{links['facebook_username']})")
+            community_links.append(f"Ⓕ [Facebook](https://www.facebook.com/{links['facebook_username']})")
         if links.get("telegram_channel_identifier"):
             community_links.append(f"📢 [Telegram](https://t.me/{links['telegram_channel_identifier']})")
         if links.get("subreddit_url"):
-            community_links.append(f"👽 [Reddit]({links['subreddit_url']})")
+            community_links.append(f"Ⓡ [Reddit]({links['subreddit_url']})")
         if links.get("discord_url"):
             community_links.append(f"🎮 [Discord]({links['discord_url']})")
 
@@ -877,7 +873,6 @@ async def desc(update, context):
             f"📌 *Categories*: {categories}\n\n"
             f"📖 *Description*: {description}\n\n"
             f"🌐 *Website*: {website}\n"
-            f"🏦 *Wallets*: {wallets}\n"
             f"🏛️ *Community*:\n{community}"
         )
 
