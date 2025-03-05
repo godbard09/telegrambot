@@ -13,6 +13,7 @@ import os
 import plotly.figure_factory as ff
 import numpy as np
 import requests
+from bs4 import BeautifulSoup
 
 # Token bot từ BotFather
 TOKEN = "8081244500:AAFkXKLfVoXQeqDYVW_HMdXluGELf9AWD3M"
@@ -828,7 +829,7 @@ async def desc(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
         coin_symbol = context.args[0].lower()
 
-        # Gọi API CoinGecko để lấy thông tin
+        # 🔹 Gọi API CoinGecko để lấy Categories
         url_coingecko = f"https://api.coingecko.com/api/v3/coins/{coin_symbol}"
         response_coingecko = requests.get(url_coingecko)
 
@@ -837,23 +838,31 @@ async def desc(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             return
 
         data_coingecko = response_coingecko.json()
-
         coin_name = data_coingecko["name"]
         symbol = data_coingecko["symbol"].upper()
         categories = ", ".join(data_coingecko.get("categories", ["Không có thông tin"]))
 
-        # Gọi API Forbes để lấy mô tả
-        url_forbes = f"https://www.forbes.com/search/?q={coin_name}+cryptocurrency"
+        # 🔹 Lấy mô tả từ phần "About Bitcoin" trên Forbes
+        url_forbes = f"https://www.forbes.com/digital-assets/assets/{coin_symbol.lower()}-{symbol.lower()}/"
         response_forbes = requests.get(url_forbes)
 
         if response_forbes.status_code == 200:
-            description = f"{coin_name} là một loại tiền mã hóa nổi bật, được sử dụng rộng rãi trong thị trường crypto."  # Mô tả mẫu
-        else:
-            description = "Không tìm thấy mô tả từ Forbes."
+            soup = BeautifulSoup(response_forbes.text, "html.parser")
 
-        # Định dạng lại thông tin giống ảnh mẫu
+            # Tìm phần "About Bitcoin" hoặc mô tả chính của coin
+            description = "Không tìm thấy mô tả từ Forbes."
+            for section in soup.find_all("h2"):
+                if "About" in section.text:
+                    desc_element = section.find_next("p")
+                    if desc_element:
+                        description = desc_element.text.strip()
+                    break
+        else:
+            description = "Không thể kết nối đến Forbes để lấy mô tả."
+
+        # 🔹 Định dạng lại thông tin giống ảnh mẫu
         message = (
-            f"*Bitcoin - ${symbol}*\n\n"
+            f"*{coin_name} - ${symbol}*\n\n"
             f"📌 *Categories*: {categories}\n\n"
             f"📖 *Description*: {description}"
         )
