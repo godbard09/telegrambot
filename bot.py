@@ -813,8 +813,6 @@ def main():
     application.add_handler(CommandHandler("info", info))
     application.add_handler(CallbackQueryHandler(button))  # Thêm handler cho nút bấm từ /top
     application.add_handler(CommandHandler("heatmap", heatmap))
-    application.add_handler(CallbackQueryHandler(heatmap_callback, pattern="^heatmap_"))
-
 
     # Chạy webhook
     application.run_webhook(
