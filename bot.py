@@ -821,7 +821,7 @@ async def heatmap(update, context):
     await send_heatmap(update.effective_chat, "1w")
 
 async def desc(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Lấy thông tin chi tiết về đồng coin từ CoinGecko và Forbes."""
+    """Lấy thông tin chi tiết về đồng coin từ CoinGecko (mô tả tiếng Việt)."""
     try:
         if not context.args:
             await update.message.reply_text("Vui lòng cung cấp mã coin. Ví dụ: /desc BTC")
@@ -829,8 +829,8 @@ async def desc(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
         coin_symbol = context.args[0].lower()
 
-        # 🔹 Gọi API CoinGecko để lấy Categories
-        url_coingecko = f"https://api.coingecko.com/api/v3/coins/{coin_symbol}"
+        # 🔹 Gọi API CoinGecko để lấy Categories & Description (tiếng Việt)
+        url_coingecko = f"https://api.coingecko.com/api/v3/coins/{coin_symbol}?localization=vi"
         response_coingecko = requests.get(url_coingecko)
 
         if response_coingecko.status_code != 200:
@@ -841,26 +841,7 @@ async def desc(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         coin_name = data_coingecko["name"]
         symbol = data_coingecko["symbol"].upper()
         categories = ", ".join(data_coingecko.get("categories", ["Không có thông tin"]))
-
-        # 🔹 Lấy mô tả từ phần "About Bitcoin" trên Forbes
-        url_forbes = f"https://www.forbes.com/digital-assets/assets/{coin_symbol.lower()}-{symbol.lower()}/"
-        headers = {"User-Agent": "Mozilla/5.0"}
-        response_forbes = requests.get(url_forbes, headers=headers)
-
-        description = "Không tìm thấy mô tả từ Forbes."
-
-        if response_forbes.status_code == 200:
-            soup = BeautifulSoup(response_forbes.text, "html.parser")
-
-            # Tìm tất cả các thẻ tiêu đề (h2, h3) có chữ "About"
-            for section in soup.find_all(["h2", "h3"]):
-                if "About" in section.text:
-                    desc_element = section.find_next("p")
-                    if desc_element:
-                        description = desc_element.text.strip()
-                    break
-        else:
-            description = "Không thể kết nối đến Forbes để lấy mô tả."
+        description = data_coingecko["description"].get("vi", "Không có mô tả bằng tiếng Việt.")
 
         # 🔹 Định dạng lại thông tin giống ảnh mẫu
         message = (
