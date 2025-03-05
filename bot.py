@@ -819,8 +819,9 @@ async def heatmap(update, context):
     await send_heatmap(update.effective_chat, "1d")
     await send_heatmap(update.effective_chat, "1w")
 
+
 async def desc(update, context):
-    """Lấy thông tin chi tiết về đồng coin từ CoinGecko (mô tả từ phần "About")."""
+    """Lấy thông tin chi tiết về đồng coin từ CoinGecko (bao gồm website, explorers, wallets, community)."""
     try:
         if not context.args:
             await update.message.reply_text("Vui lòng cung cấp mã coin. Ví dụ: /desc BTC")
@@ -844,25 +845,30 @@ async def desc(update, context):
         # Lấy mô tả tiếng Việt nếu có, nếu không thì lấy mô tả tiếng Anh
         description_vi = data_coingecko["description"].get("vi")
         description_en = data_coingecko["description"].get("en")
+        description = description_vi if description_vi else description_en if description_en else "Không có mô tả."
 
-        if description_vi:
-            description = description_vi  # Lấy mô tả tiếng Việt
-        elif description_en:
-            description = description_en  # Nếu không có tiếng Việt, lấy tiếng Anh
-        else:
-            description = "Không có mô tả."
+        # 🔹 Lấy thêm thông tin website, explorers, wallets, community
+        website = data_coingecko.get("links", {}).get("homepage", ["Không có thông tin"])[0]
+        explorers = ", ".join(data_coingecko.get("links", {}).get("blockchain_site", ["Không có thông tin"])[:3])
+        wallets = ", ".join(data_coingecko.get("links", {}).get("wallets", ["Không có thông tin"]))
+        community = ", ".join(data_coingecko.get("links", {}).get("twitter_screen_name", ["Không có thông tin"]))
 
         # 🔹 Định dạng lại thông tin giống ảnh mẫu
         message = (
             f"*{coin_name} - ${symbol}*\n\n"
             f"📌 *Categories*: {categories}\n\n"
-            f"📖 *Description*: {description}"
+            f"📖 *Description*: {description}\n\n"
+            f"🌐 *Website*: {website}\n"
+            f"🔎 *Explorers*: {explorers}\n"
+            f"🏦 *Wallets*: {wallets}\n"
+            f"🏛️ *Community*: {community}"
         )
 
         await update.message.reply_text(message, parse_mode="Markdown")
 
     except Exception as e:
         await update.message.reply_text(f"Đã xảy ra lỗi: {e}")
+
 
 async def set_webhook(application: Application):
     """Thiết lập Webhook."""
