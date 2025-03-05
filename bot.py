@@ -663,7 +663,7 @@ async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             await update.message.reply_text("Vui lòng cung cấp tên coin. Ví dụ: /info bitcoin")
             return
 
-        coin_name = "-".join(context.args).lower()  # Hỗ trợ tên có dấu cách (ví dụ: "bitcoin cash" -> "bitcoin-cash")
+        coin_name = "-".join(context.args).lower()  # Xử lý tên có dấu cách (ví dụ: "bitcoin cash" -> "bitcoin-cash")
 
         # Gọi API để lấy thông tin chi tiết của coin
         url = f"https://api.coingecko.com/api/v3/coins/{coin_name}"
@@ -674,28 +674,33 @@ async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
         data = response.json()
 
-        # Lấy thông tin quan trọng
-        price_usd = data['market_data']['current_price']['usd']
-        high_24h = data['market_data']['high_24h']['usd']
-        change_1h = data['market_data']['price_change_percentage_1h_in_currency']['usd']
-        change_24h = data['market_data']['price_change_percentage_24h_in_currency']['usd']
-        change_7d = data['market_data']['price_change_percentage_7d_in_currency']['usd']
-        market_cap = data['market_data']['market_cap']['usd']
-        volume_24h = data['market_data']['total_volume']['usd']
-        circulating_supply = data['market_data']['circulating_supply']
-        max_supply = data['market_data']['max_supply']
+        # Kiểm tra và xử lý NoneType trước khi format
+        def safe_format(value, format_str="{:.2f}"):
+            return format_str.format(value) if value is not None else "N/A"
+
+        price_usd = safe_format(data['market_data']['current_price'].get('usd'))
+        high_24h = safe_format(data['market_data']['high_24h'].get('usd'))
+        all_time_high = safe_format(data['market_data']['ath'].get('usd'))  # Giá cao nhất từ khi niêm yết
+        change_1h = safe_format(data['market_data']['price_change_percentage_1h_in_currency'].get('usd'))
+        change_24h = safe_format(data['market_data']['price_change_percentage_24h_in_currency'].get('usd'))
+        change_7d = safe_format(data['market_data']['price_change_percentage_7d_in_currency'].get('usd'))
+        market_cap = safe_format(data['market_data']['market_cap'].get('usd'), "{:,.2f}")
+        volume_24h = safe_format(data['market_data']['total_volume'].get('usd'), "{:,.2f}")
+        circulating_supply = safe_format(data['market_data']['circulating_supply'], "{:,.0f}")
+        max_supply = safe_format(data['market_data']['max_supply'], "{:,.0f}")
 
         message = (
             f"📊 *Thông tin về {data['name']} ({data['symbol'].upper()})*:\n"
-            f"💰 Giá hiện tại: *${price_usd:,.2f}*\n"
-            f"🔺 Giá cao nhất 24h: *${high_24h:,.2f}*\n"
-            f"📈 Thay đổi giá (1 giờ): *{change_1h:.2f}%*\n"
-            f"📈 Thay đổi giá (24 giờ): *{change_24h:.2f}%*\n"
-            f"📈 Thay đổi giá (7 ngày): *{change_7d:.2f}%*\n"
-            f"🏦 Vốn hóa thị trường: *${market_cap:,.2f}*\n"
-            f"📊 Doanh thu 24 giờ: *${volume_24h:,.2f}*\n"
-            f"🔄 Lượng tiền đang lưu thông: *{circulating_supply:,.0f} {data['symbol'].upper()}*\n"
-            f"🛑 Nguồn cung tối đa: *{max_supply:,.0f} {data['symbol'].upper()}*\n"
+            f"💰 Giá hiện tại: *${price_usd}*\n"
+            f"🔺 Giá cao nhất 24h: *${high_24h}*\n"
+            f"🚀 Giá cao nhất mọi thời đại: *${all_time_high}*\n"
+            f"📈 Thay đổi giá (1 giờ): *{change_1h}%*\n"
+            f"📈 Thay đổi giá (24 giờ): *{change_24h}%*\n"
+            f"📈 Thay đổi giá (7 ngày): *{change_7d}%*\n"
+            f"🏦 Vốn hóa thị trường: *${market_cap}*\n"
+            f"📊 Doanh thu 24 giờ: *${volume_24h}*\n"
+            f"🔄 Lượng tiền đang lưu thông: *{circulating_supply} {data['symbol'].upper()}*\n"
+            f"🛑 Nguồn cung tối đa: *{max_supply} {data['symbol'].upper()}*\n"
         )
 
         await update.message.reply_text(message, parse_mode="Markdown")
