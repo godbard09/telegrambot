@@ -773,7 +773,7 @@ async def send_heatmap(chat, timeframe: str):
 
         # Kiểm tra xem file có được tạo không
         if not os.path.exists(html_path):
-            await chat.send_message("❌ Lỗi khi tạo file heatmap.html. Vui lòng thử lại!")
+            await chat.send_message(f"❌ Lỗi khi tạo file heatmap_{timeframe}.html. Vui lòng thử lại!")
             return
         else:
             print(f"✅ File {html_path} đã được tạo thành công!")
@@ -789,25 +789,12 @@ async def send_heatmap(chat, timeframe: str):
         await chat.send_message(f"❌ Đã xảy ra lỗi: {e}")
 
 async def heatmap(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Lệnh /heatmap chỉ gửi các nút chọn 1h, 1d, 1w"""
-    keyboard = [
-        [
-            InlineKeyboardButton("📊 Heatmap 1h", callback_data="heatmap_1h"),
-            InlineKeyboardButton("📊 Heatmap 1d", callback_data="heatmap_1d"),
-            InlineKeyboardButton("📊 Heatmap 1w", callback_data="heatmap_1w"),
-        ]
-    ]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-
-    await update.message.reply_text("📊 Chọn timeframe để xem heatmap:", reply_markup=reply_markup)
-
-async def heatmap_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Xử lý khi bấm vào nút 1h, 1d, 1w"""
-    query = update.callback_query
-    await query.answer()
-    timeframe = query.data.split("_")[1]  # Lấy giá trị 1h, 1d, 1w
-    print(f"📌 Callback được gọi: {query.data}")
-    await send_heatmap(update.effective_chat, timeframe)
+    """Lệnh /heatmap tự động gửi 3 heatmap (1h, 1d, 1w)"""
+    await update.message.reply_text("📊 Đang tạo heatmap cho 1h, 1d, 1w. Vui lòng chờ...")
+    
+    await send_heatmap(update.effective_chat, "1h")
+    await send_heatmap(update.effective_chat, "1d")
+    await send_heatmap(update.effective_chat, "1w")
 
 
 async def set_webhook(application: Application):
@@ -832,7 +819,6 @@ def main():
     application.add_handler(CommandHandler("info", info))
     application.add_handler(CallbackQueryHandler(button))  # Thêm handler cho nút bấm từ /top
     application.add_handler(CommandHandler("heatmap", heatmap))
-    application.add_handler(CallbackQueryHandler(heatmap_callback, pattern="^heatmap_"))
 
 
 
