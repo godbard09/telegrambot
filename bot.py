@@ -844,14 +844,16 @@ async def desc(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
         # 🔹 Lấy mô tả từ phần "About Bitcoin" trên Forbes
         url_forbes = f"https://www.forbes.com/digital-assets/assets/{coin_symbol.lower()}-{symbol.lower()}/"
-        response_forbes = requests.get(url_forbes)
+        headers = {"User-Agent": "Mozilla/5.0"}
+        response_forbes = requests.get(url_forbes, headers=headers)
+
+        description = "Không tìm thấy mô tả từ Forbes."
 
         if response_forbes.status_code == 200:
             soup = BeautifulSoup(response_forbes.text, "html.parser")
 
-            # Tìm phần "About Bitcoin" hoặc mô tả chính của coin
-            description = "Không tìm thấy mô tả từ Forbes."
-            for section in soup.find_all("h2"):
+            # Tìm tất cả các thẻ tiêu đề (h2, h3) có chữ "About"
+            for section in soup.find_all(["h2", "h3"]):
                 if "About" in section.text:
                     desc_element = section.find_next("p")
                     if desc_element:
