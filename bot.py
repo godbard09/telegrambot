@@ -32,8 +32,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         "Gõ /top để xem top 10 cặp giao dịch tăng, giảm mạnh nhất 24 giờ qua.\n"
         "Gõ /signal <mã giao dịch> để xem lịch sử tín hiệu mua bán trong 7 ngày qua.\n"
         "Gõ /smarttrade <mã giao dịch> để xem thông tin và tín hiệu mua bán mới nhất.\n"
-        "Gõ /list để xem top 10 cặp giao dịch có tín hiệu mua bán gần đây.\n"
-        "Gõ /heatmap để xem top 100 cặp giao dịch."
+        "Gõ /list để xem top 10 cặp giao dịch có tín hiệu mua bán gần đây."
     )
 
 
@@ -654,90 +653,6 @@ async def signal(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     except Exception as e:
         await update.message.reply_text(f"Đã xảy ra lỗi: {e}")
 
-async def heatmap(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Hiển thị heatmap của top 100 cặp giao dịch /USDT với các nút bấm chọn timeframe."""
-    try:
-        # Kiểm tra nếu là callback từ button
-        if update.callback_query:
-            query = update.callback_query
-            timeframe = query.data  # Lấy timeframe từ callback_data
-            await query.answer()
-        else:
-            timeframe = '1d'  # Mặc định là 1 ngày nếu dùng lệnh /heatmap
-
-        # Lấy dữ liệu từ KuCoin
-        markets = exchange.fetch_tickers()
-
-        # Lọc ra các cặp giao dịch USDT có dữ liệu hợp lệ
-        data = [
-            (symbol, ticker['percentage'])
-            for symbol, ticker in markets.items()
-            if '/USDT' in symbol and isinstance(ticker.get('percentage'), (int, float))
-        ]
-
-        # Kiểm tra nếu không có dữ liệu hợp lệ
-        if not data:
-            await update.message.reply_text("Không có dữ liệu hợp lệ để hiển thị heatmap.")
-            return
-
-        # Lấy top 100 theo biến động giá
-        top_data = sorted(data, key=lambda x: abs(x[1]), reverse=True)[:100]
-
-        # Tạo danh sách tên coin và giá trị phần trăm thay đổi
-        labels = [item[0] for item in top_data]
-        values = [item[1] for item in top_data]
-
-        # Chuyển giá trị thành ma trận cho heatmap
-        matrix_size = int(np.ceil(np.sqrt(len(values))))
-        while len(values) < matrix_size**2:
-            labels.append("")
-            values.append(None)
-
-        heatmap_data = np.array(values).reshape((matrix_size, matrix_size))
-        label_data = np.array(labels).reshape((matrix_size, matrix_size))
-
-        # Tạo biểu đồ heatmap
-        fig = ff.create_annotated_heatmap(
-            z=heatmap_data,
-            x=label_data[0], y=label_data[:, 0],
-            colorscale='RdYlGn',
-            showscale=True
-        )
-
-        fig.update_layout(
-            title=f"Heatmap Top 100 Cặp Giao Dịch USDT ({timeframe.upper()})",
-            xaxis=dict(showgrid=False),
-            yaxis=dict(showgrid=False)
-        )
-
-        # Lưu hình ảnh
-        image_path = f"heatmap_{timeframe}.png"
-        fig.write_image(image_path)
-
-        # Inline buttons chọn timeframe
-        keyboard = [
-            [
-                InlineKeyboardButton("1h", callback_data="1h"),
-                InlineKeyboardButton("1d", callback_data="1d"),
-                InlineKeyboardButton("1w", callback_data="1w"),
-            ]
-        ]
-        reply_markup = InlineKeyboardMarkup(keyboard)
-
-        # Nếu là callback từ button, chỉ cập nhật ảnh
-        if update.callback_query:
-            with open(image_path, 'rb') as img:
-                await update.callback_query.message.reply_photo(photo=img, caption=f"🔥 Heatmap Top 100 USDT ({timeframe.upper()})", reply_markup=reply_markup)
-        else:
-            with open(image_path, 'rb') as img:
-                await update.message.reply_photo(photo=img, caption=f"🔥 Heatmap Top 100 USDT ({timeframe.upper()})", reply_markup=reply_markup)
-
-        # Xóa file ảnh sau khi gửi
-        os.remove(image_path)
-
-    except Exception as e:
-        await update.message.reply_text(f"Đã xảy ra lỗi: {e}")
-
 
 async def set_webhook(application: Application):
     """Thiết lập Webhook."""
@@ -757,8 +672,6 @@ def main():
     application.add_handler(CommandHandler("signal", signal))
     application.add_handler(CommandHandler("top", top))  # Thêm handler cho /top
     application.add_handler(CommandHandler("list", list_signals))
-    application.add_handler(CommandHandler("heatmap", heatmap))
-    application.add_handler(CallbackQueryHandler(heatmap))  # Xử lý khi nhấn nút chọn timeframe
     application.add_handler(CommandHandler("smarttrade", current_price))  # Thêm handler cho /cap
     application.add_handler(CallbackQueryHandler(button))  # Thêm handler cho nút bấm từ /top
 
