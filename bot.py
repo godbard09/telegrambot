@@ -13,6 +13,7 @@ import os
 import plotly.figure_factory as ff
 import numpy as np
 import requests
+from googletrans import Translator
 
 # Token bot từ BotFather
 TOKEN = "8081244500:AAFkXKLfVoXQeqDYVW_HMdXluGELf9AWD3M"
@@ -820,6 +821,8 @@ async def heatmap(update, context):
     await send_heatmap(update.effective_chat, "1w")
 
 
+translator = Translator()
+
 async def desc(update, context):
     """Lấy thông tin chi tiết về đồng coin từ CoinGecko (bao gồm website và community)."""
     try:
@@ -842,10 +845,17 @@ async def desc(update, context):
         symbol = data_coingecko.get("symbol", "N/A").upper()
         categories = ", ".join(data_coingecko.get("categories", ["Không có thông tin"]))
 
-        # Lấy mô tả tiếng Việt nếu có, nếu không thì lấy mô tả tiếng Anh
+        # 🔹 Lấy mô tả (ưu tiên tiếng Việt, nếu không có thì dịch từ tiếng Anh)
         description_vi = data_coingecko["description"].get("vi")
         description_en = data_coingecko["description"].get("en")
-        description = description_vi if description_vi else description_en if description_en else "Không có mô tả."
+
+        if description_vi:
+            description = description_vi
+        elif description_en:
+            # Dịch sang tiếng Việt theo nghĩa chuyên ngành
+            description = translator.translate(description_en, src="en", dest="vi").text
+        else:
+            description = "Không có mô tả."
 
         # 🔹 Lấy thông tin website
         website = data_coingecko.get("links", {}).get("homepage", ["Không có thông tin"])[0]
