@@ -690,6 +690,7 @@ async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         volume_24h = safe_format(data['market_data']['total_volume'].get('usd'), "{:,.2f}")
         circulating_supply = safe_format(data['market_data']['circulating_supply'], "{:,.0f}")
         max_supply = safe_format(data['market_data']['max_supply'], "{:,.0f}")
+        fully_diluted_valuation = safe_format(data['market_data']['fully_diluted_valuation'].get('usd'), "{:,.2f}")  # Thêm FDV
 
         message = (
             f"📊 *Thông tin về {data['name']} ({data['symbol'].upper()})*:\n"
@@ -700,7 +701,8 @@ async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             f"📈 Thay đổi giá (24 giờ): *{change_24h}%*\n"
             f"📈 Thay đổi giá (7 ngày): *{change_7d}%*\n"
             f"🏦 Vốn hóa thị trường: *${market_cap}*\n"
-            f"📊 Doanh thu 24 giờ: *${volume_24h}*\n"
+            f"💎 Vốn hóa pha loãng hoàn toàn (FDV): *${fully_diluted_valuation}*\n"  # Hiển thị FDV
+            f"📊 Khối lượng giao dịch 24 giờ: *${volume_24h}*\n"
             f"🔄 Lượng tiền đang lưu thông: *{circulating_supply} {data['symbol'].upper()}*\n"
             f"🛑 Nguồn cung tối đa: *{max_supply} {data['symbol'].upper()}*\n"
         )
@@ -709,6 +711,7 @@ async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     except Exception as e:
         await update.message.reply_text(f"Đã xảy ra lỗi: {e}")
+
 
 TIMEFRAME_MAPPING = {
     "1h": "price_change_percentage_1h_in_currency",
