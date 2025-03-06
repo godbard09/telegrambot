@@ -824,14 +824,15 @@ async def heatmap(update, context):
 # Từ điển thuật ngữ chuyên ngành
 crypto_terms = {
     "smart contract": "hợp đồng thông minh",
-    "staking": "đặt cược (staking)",
+    "staking": "staking",
     "DeFi": "Tài chính phi tập trung (DeFi)",
-    "blockchain": "chuỗi khối",
-    "cryptocurrency": "tiền điện tử",
+    "blockchain": "blockchain",
+    "cryptocurrency": "tiền mã hóa",
     "tokenomics": "kinh tế học token",
     "liquidity pool": "bể thanh khoản",
-    "yield farming": "canh tác lợi nhuận",
+    "yield farming": "khai thác thanh khoản",
     "NFT": "Token không thể thay thế (NFT)",
+    "gas": "gas",
 }
 
 async def translate_text(text, dest="vi"):
