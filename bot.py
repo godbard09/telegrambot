@@ -821,6 +821,37 @@ async def heatmap(update, context):
     await send_heatmap(update.effective_chat, "1w")
 
 
+# Từ điển thuật ngữ chuyên ngành
+crypto_terms = {
+    "smart contract": "hợp đồng thông minh",
+    "staking": "đặt cược (staking)",
+    "DeFi": "Tài chính phi tập trung (DeFi)",
+    "blockchain": "chuỗi khối",
+    "cryptocurrency": "tiền điện tử",
+    "tokenomics": "kinh tế học token",
+    "liquidity pool": "bể thanh khoản",
+    "yield farming": "canh tác lợi nhuận",
+    "NFT": "Token không thể thay thế (NFT)",
+}
+
+async def translate_text(text, dest="vi"):
+    """Dịch văn bản từ tiếng Anh sang tiếng Việt theo nghĩa chuyên ngành và tự nhiên."""
+    try:
+        # Chia văn bản thành từng câu để dịch chính xác hơn
+        sentences = text.split(". ")
+        translated_sentences = [
+            GoogleTranslator(source="auto", target=dest).translate(sentence) for sentence in sentences
+        ]
+        translated_text = ". ".join(translated_sentences)
+
+        # Thay thế thuật ngữ chuyên ngành bằng bản dịch chuẩn
+        for en_term, vi_term in crypto_terms.items():
+            translated_text = translated_text.replace(en_term, vi_term)
+
+        return translated_text
+    except Exception as e:
+        return f"Lỗi khi dịch: {e}"
+
 async def desc(update, context):
     """Lấy thông tin chi tiết về đồng coin từ CoinGecko (bao gồm website và community)."""
     try:
@@ -851,7 +882,7 @@ async def desc(update, context):
             description = description_vi
         elif description_en:
             # Dịch sang tiếng Việt theo nghĩa chuyên ngành
-            description = GoogleTranslator(source="auto", target="vi").translate(description_en)
+            description = await translate_text(description_en)
         else:
             description = "Không có mô tả."
 
@@ -878,10 +909,10 @@ async def desc(update, context):
         # 🔹 Định dạng lại thông tin
         message = (
             f"*{coin_name} - ${symbol}*\n\n"
-            f"📌 *Categories*: {categories}\n\n"
-            f"📖 *Description*: {description}\n\n"
+            f"📌 *Danh mục*: {categories}\n\n"
+            f"📖 *Mô tả*: {description}\n\n"
             f"🌐 *Website*: {website}\n"
-            f"🏛️ *Community*:\n{community}"
+            f"🏛️ *Cộng đồng*:\n{community}"
         )
 
         await update.message.reply_text(message, parse_mode="Markdown", disable_web_page_preview=True)
