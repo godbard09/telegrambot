@@ -13,7 +13,6 @@ import os
 import plotly.figure_factory as ff
 import numpy as np
 import requests
-from deep_translator import GoogleTranslator
 
 # Token bot từ BotFather
 TOKEN = "8081244500:AAFkXKLfVoXQeqDYVW_HMdXluGELf9AWD3M"
@@ -821,38 +820,6 @@ async def heatmap(update, context):
     await send_heatmap(update.effective_chat, "1w")
 
 
-# Từ điển thuật ngữ chuyên ngành
-crypto_terms = {
-    "smart contract": "hợp đồng thông minh",
-    "staking": "staking",
-    "DeFi": "Tài chính phi tập trung (DeFi)",
-    "blockchain": "blockchain",
-    "cryptocurrency": "tiền mã hóa",
-    "tokenomics": "kinh tế học token",
-    "liquidity pool": "bể thanh khoản",
-    "yield farming": "khai thác thanh khoản",
-    "NFT": "Token không thể thay thế (NFT)",
-    "gas": "gas",
-}
-
-async def translate_text(text, dest="vi"):
-    """Dịch văn bản từ tiếng Anh sang tiếng Việt theo nghĩa chuyên ngành và tự nhiên."""
-    try:
-        # Chia văn bản thành từng câu để dịch chính xác hơn
-        sentences = text.split(". ")
-        translated_sentences = [
-            GoogleTranslator(source="auto", target=dest).translate(sentence) for sentence in sentences
-        ]
-        translated_text = ". ".join(translated_sentences)
-
-        # Thay thế thuật ngữ chuyên ngành bằng bản dịch chuẩn
-        for en_term, vi_term in crypto_terms.items():
-            translated_text = translated_text.replace(en_term, vi_term)
-
-        return translated_text
-    except Exception as e:
-        return f"Lỗi khi dịch: {e}"
-
 async def desc(update, context):
     """Lấy thông tin chi tiết về đồng coin từ CoinGecko (bao gồm website và community)."""
     try:
@@ -875,17 +842,10 @@ async def desc(update, context):
         symbol = data_coingecko.get("symbol", "N/A").upper()
         categories = ", ".join(data_coingecko.get("categories", ["Không có thông tin"]))
 
-        # 🔹 Lấy mô tả (ưu tiên tiếng Việt, nếu không có thì dịch từ tiếng Anh)
+        # Lấy mô tả tiếng Việt nếu có, nếu không thì lấy mô tả tiếng Anh
         description_vi = data_coingecko["description"].get("vi")
         description_en = data_coingecko["description"].get("en")
-
-        if description_vi:
-            description = description_vi
-        elif description_en:
-            # Dịch sang tiếng Việt theo nghĩa chuyên ngành
-            description = await translate_text(description_en)
-        else:
-            description = "Không có mô tả."
+        description = description_vi if description_vi else description_en if description_en else "Không có mô tả."
 
         # 🔹 Lấy thông tin website
         website = data_coingecko.get("links", {}).get("homepage", ["Không có thông tin"])[0]
