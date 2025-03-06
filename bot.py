@@ -13,7 +13,7 @@ import os
 import plotly.figure_factory as ff
 import numpy as np
 import requests
-from googletrans import Translator
+from deep_translator import GoogleTranslator
 
 # Token bot từ BotFather
 TOKEN = "8081244500:AAFkXKLfVoXQeqDYVW_HMdXluGELf9AWD3M"
@@ -821,8 +821,6 @@ async def heatmap(update, context):
     await send_heatmap(update.effective_chat, "1w")
 
 
-translator = Translator()
-
 async def desc(update, context):
     """Lấy thông tin chi tiết về đồng coin từ CoinGecko (bao gồm website và community)."""
     try:
@@ -853,7 +851,7 @@ async def desc(update, context):
             description = description_vi
         elif description_en:
             # Dịch sang tiếng Việt theo nghĩa chuyên ngành
-            description = translator.translate(description_en, src="en", dest="vi").text
+            description = GoogleTranslator(source="auto", target="vi").translate(description_en)
         else:
             description = "Không có mô tả."
 
