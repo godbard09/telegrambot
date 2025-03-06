@@ -6,4 +6,4 @@ asyncio==3.4.3            # Thư viện cho lập trình bất đồng bộ (th�
 numpy>=1.22.0
 python-telegram-bot[job-queue]==20.3
 python-telegram-bot[webhooks]==20.3
-googletrans==4.0.0-rc1
+deep-translator
