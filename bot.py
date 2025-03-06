@@ -35,7 +35,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         "Gõ /smarttrade <mã giao dịch> để xem thông tin và tín hiệu mua bán mới nhất.\n"
         "Gõ /list để xem top 10 cặp giao dịch có tín hiệu mua bán gần đây.\n"
         "Gõ /info để xem thông tin đồng coin.\n"
-        "Gõ /heatmap để xem heatmap của 100 đồng coin."
+        "Gõ /heatmap để xem heatmap của 100 đồng coin.\n"
         "Gõ /desc để xem mô tả đồng coin."
     )
 
@@ -788,7 +788,7 @@ async def send_heatmap(chat, timeframe: str):
         ))
 
         fig.update_layout(
-            title=f"📊 Heatmap of Top 100 Coins ({timeframe.upper()}) - Màu sắc theo mẫu",
+            title=f"📊 Heatmap top 100 coins ({timeframe.upper()})",
             template="plotly_dark"
         )
 
@@ -813,7 +813,7 @@ async def send_heatmap(chat, timeframe: str):
 
 async def heatmap(update, context):
     """Lệnh /heatmap tự động gửi 3 heatmap (1h, 1d, 1w) với màu sắc theo mẫu"""
-    await update.message.reply_text("📊 Đang tạo heatmap với màu giống hình mẫu. Vui lòng chờ...")
+    await update.message.reply_text("📊 Đang tạo heatmap 1h, 1d, 1w. Vui lòng chờ...")
     
     await send_heatmap(update.effective_chat, "1h")
     await send_heatmap(update.effective_chat, "1d")
