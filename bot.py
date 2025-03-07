@@ -79,7 +79,7 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
             .strftime('%Y-%m-%d %H:%M:%S')
         )
 
-        timeframe = '6h'
+        timeframe = '2h'
         limit = 500
         ohlcv = exchange.fetch_ohlcv(symbol, timeframe, limit=limit)
         df = pd.DataFrame(ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
@@ -134,6 +134,8 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         position_info = "Không có tín hiệu mua/bán gần đây."
 
         if recent_signal:
+            signal_age = (pd.Timestamp.utcnow().tz_convert(vietnam_tz) - recent_signal['timestamp']).total_seconds() / 3600
+            position_status = "THEO DÕI" if signal_age > 2 else recent_signal['type']
             if recent_signal['type'] == "MUA":
                 profit_loss = ((current_price - recent_signal['price']) / recent_signal['price']) * 100
                 profit_color = (
@@ -143,14 +145,15 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
                 )
                 position_info = (
                     f"- Xu hướng: **{trend}**\n"
-                    f"- Vị thế hiện tại: **MUA**\n"
+                    f"- Vị thế hiện tại: **{position_status}**\n"
                     f"- Ngày mua: {recent_signal['timestamp'].strftime('%Y-%m-%d %H:%M:%S')}\n"
                     f"- Giá mua: {recent_signal['price']:.2f} {quote_currency}\n"
                     f"- Lãi/Lỗ: {profit_color}"
                 )
             elif recent_signal['type'] == "BÁN":
-                prior_buy = next((s for s in reversed(signals) if s['type'] == "MUA" and s['timestamp'] < recent_signal['timestamp']), None)
-                if prior_buy:
+                buy_signals = [s for s in signals if s['type'] == "MUA" and s['timestamp'] < recent_signal['timestamp']]
+                if buy_signals:
+                    prior_buy = max(buy_signals, key=lambda x: x['timestamp'])  # Chọn lần mua gần nhất
                     profit_loss = ((recent_signal['price'] - prior_buy['price']) / prior_buy['price']) * 100
                     profit_color = (
                         f"{profit_loss:.2f}% 🟢" if profit_loss > 0 else
@@ -159,7 +162,7 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
                     )
                     position_info = (
                         f"- Xu hướng: **{trend}**\n"
-                        f"- Vị thế hiện tại: **BÁN**\n"
+                        f"- Vị thế hiện tại: **{position_status}**\n"
                         f"- Ngày mua: {prior_buy['timestamp'].strftime('%Y-%m-%d %H:%M:%S')}\n"
                         f"- Giá mua: {prior_buy['price']:.2f} {quote_currency}\n"
                         f"- Ngày bán: {recent_signal['timestamp'].strftime('%Y-%m-%d %H:%M:%S')}\n"
@@ -169,11 +172,12 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
                 else:
                     position_info = (
                         f"- Xu hướng: **{trend}**\n"
-                        f"- Vị thế hiện tại: **BÁN**\n"
+                        f"- Vị thế hiện tại: **{position_status}**\n"
                         f"- Ngày bán: {recent_signal['timestamp'].strftime('%Y-%m-%d %H:%M:%S')}\n"
                         f"- Giá bán: {recent_signal['price']:.2f} {quote_currency}\n"
                         f"- Lãi/Lỗ: Không xác định (không có tín hiệu mua trước đó)."
                     )
+
 
         message = escape_markdown(
             f"Thông tin giá hiện tại cho {symbol}:\n"
@@ -456,7 +460,7 @@ async def list_signals(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         # Lấy danh sách mã giao dịch
         markets = exchange.load_markets()
         symbols = list(markets.keys())
-        timeframe = '6h'
+        timeframe = '2h'
         limit = 200
         buy_signals = []
         sell_signals = []
@@ -561,7 +565,7 @@ async def signal(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             await update.message.reply_text("Cặp giao dịch không hợp lệ. Vui lòng sử dụng định dạng như BTC/USDT.")
             return
 
-        timeframe = '6h'
+        timeframe = '2h'
         limit = 500
 
         markets = exchange.load_markets()
@@ -604,32 +608,6 @@ async def signal(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         current_time = last_row['timestamp'].strftime('%Y-%m-%d %H:%M:%S')
         current_price = last_row['close']
 
-        # Tín hiệu mua
-        if last_row['close'] > last_row['MA50'] and last_row['MACD'] > last_row['Signal'] and last_row['RSI'] < 30:
-            last_buy_price = last_row['close']
-            last_buy_price_global = last_row['close']  # Cập nhật giá mua toàn cục
-            profit_loss = ((current_price - last_buy_price) / last_buy_price) * 100
-            profit_icon = "\U0001F7E2" if profit_loss >= 0 else "\U0001F534"
-            signals_now.append(f"\U0001F7E2 Mua: Giá {last_row['close']:.2f} {unit} vào lúc {current_time}. {profit_icon} Lãi/Lỗ: {profit_loss:.2f}%")
-        elif last_row['close'] <= last_row['BB_Lower']:
-            last_buy_price = last_row['close']
-            last_buy_price_global = last_row['close']  # Cập nhật giá mua toàn cục
-            profit_loss = ((current_price - last_buy_price) / last_buy_price) * 100
-            profit_icon = "\U0001F7E2" if profit_loss >= 0 else "\U0001F534"
-            signals_now.append(f"\U0001F7E2 Mua: Giá {last_row['close']:.2f} {unit} vào lúc {current_time}. {profit_icon} Lãi/Lỗ: {profit_loss:.2f}%")
-
-        # Tín hiệu bán
-        if last_row['close'] < last_row['MA50'] and last_row['MACD'] < last_row['Signal'] and last_row['RSI'] > 70:
-            if last_buy_price_global is not None:  # Sử dụng giá mua gần nhất hợp lệ
-                profit_loss = ((last_row['close'] - last_buy_price_global) / last_buy_price_global) * 100
-                profit_icon = "\U0001F7E2" if profit_loss >= 0 else "\U0001F534"
-                signals_now.append(f"\U0001F534 Bán: Giá {current_price:.2f} {unit} vào lúc {current_time}. {profit_icon} Lãi/Lỗ: {profit_loss:.2f}%")
-        elif last_row['close'] >= last_row['BB_Upper']:
-            if last_buy_price_global is not None:  # Sử dụng giá mua gần nhất hợp lệ
-                profit_loss = ((last_row['close'] - last_buy_price_global) / last_buy_price_global) * 100
-                profit_icon = "\U0001F7E2" if profit_loss >= 0 else "\U0001F534"
-                signals_now.append(f"\U0001F534 Bán: Giá {current_price:.2f} {unit} vào lúc {current_time}. {profit_icon} Lãi/Lỗ: {profit_loss:.2f}%")
-
         # Phát hiện tín hiệu mua bán trong 7 ngày qua
         signals_past = []
         now = pd.Timestamp.now(tz=vietnam_tz)
@@ -663,11 +641,6 @@ async def signal(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
         # Gửi tín hiệu qua Telegram
         signal_message = f"Tín hiệu giao dịch cho {symbol}:"
-        if signals_now:
-            signal_message += "\nTín hiệu hiện tại:\n" + "\n".join(signals_now)
-        else:
-            signal_message += "\nHiện tại không có tín hiệu rõ ràng."
-
         if signals_past:
             signal_message += "\n\nTín hiệu trong 7 ngày qua:\n" + "\n".join(signals_past)
         else:
@@ -677,7 +650,6 @@ async def signal(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     except Exception as e:
         await update.message.reply_text(f"Đã xảy ra lỗi: {e}")
-
 
 
 async def set_webhook(application: Application):
