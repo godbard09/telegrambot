@@ -549,108 +549,6 @@ async def list_signals(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         await update.message.reply_text(f"Đã xảy ra lỗi: {e}")
 
 
-async def signal(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Phân tích và gửi tín hiệu mua bán."""
-    try:
-        symbol = context.args[0] if context.args else None
-        if not symbol:
-            await update.message.reply_text("Vui lòng cung cấp mã giao dịch. Ví dụ: /signal BTC/USDT")
-            return
-
-        # Xác định đơn vị giá từ cặp giao dịch
-        if "/" in symbol:
-            base, quote = symbol.split("/")
-            unit = quote
-        else:
-            await update.message.reply_text("Cặp giao dịch không hợp lệ. Vui lòng sử dụng định dạng như BTC/USDT.")
-            return
-
-        timeframe = '2h'
-        limit = 500
-
-        markets = exchange.load_markets()
-        if symbol not in markets:
-            await update.message.reply_text(f"Mã giao dịch không hợp lệ: {symbol}. Vui lòng kiểm tra lại.")
-            return
-
-        ohlcv = exchange.fetch_ohlcv(symbol, timeframe, limit=limit)
-        df = pd.DataFrame(ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
-        # Chuyển đổi timestamp sang giờ Việt Nam
-        df['timestamp'] = (
-            pd.to_datetime(df['timestamp'], unit='ms')
-            .dt.tz_localize('UTC')
-            .dt.tz_convert(vietnam_tz)
-        )
-
-        # Tính toán các chỉ báo kỹ thuật
-        df['MA50'] = df['close'].rolling(window=50).mean()
-        df['MA100'] = df['close'].rolling(window=100).mean()
-        df['EMA12'] = df['close'].ewm(span=12).mean()
-        df['EMA26'] = df['close'].ewm(span=26).mean()
-        df['MACD'] = df['EMA12'] - df['EMA26']
-        df['Signal'] = df['MACD'].ewm(span=9).mean()
-        delta = df['close'].diff()
-        gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
-        loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
-        rs = gain / loss
-        df['RSI'] = 100 - (100 / (1 + rs))
-        df['BB_Middle'] = df['close'].rolling(window=20).mean()
-        df['BB_Upper'] = df['BB_Middle'] + 2 * df['close'].rolling(window=20).std()
-        df['BB_Lower'] = df['BB_Middle'] - 2 * df['close'].rolling(window=20).std()
-
-        # Phát hiện tín hiệu mua bán hiện tại
-        last_row = df.iloc[-1]  # Lấy dòng dữ liệu cuối cùng
-        signals_now = []
-        last_buy_price = None
-        last_buy_price_global = None  # Lưu giá mua gần nhất hợp lệ
-
-        # Thời điểm và giá hiện tại
-        current_time = last_row['timestamp'].strftime('%Y-%m-%d %H:%M:%S')
-        current_price = last_row['close']
-
-        # Phát hiện tín hiệu mua bán trong 7 ngày qua
-        signals_past = []
-        now = pd.Timestamp.now(tz=vietnam_tz)
-        for index, row in df.iterrows():
-            if row['timestamp'] < (now - pd.Timedelta(days=7)):
-                continue
-
-            # Tín hiệu mua trong 7 ngày qua
-            if row['close'] > row['MA50'] and row['MACD'] > row['Signal'] and row['RSI'] < 30:
-                last_buy_price_global = row['close']  # Cập nhật giá mua toàn cục
-                profit_loss = ((current_price - last_buy_price_global) / last_buy_price_global) * 100
-                profit_icon = "\U0001F7E2" if profit_loss >= 0 else "\U0001F534"
-                signals_past.append(f"\U0001F7E2 Mua: Giá {row['close']:.2f} {unit} vào lúc {row['timestamp'].strftime('%Y-%m-%d %H:%M:%S')}. {profit_icon} Lãi/Lỗ: {profit_loss:.2f}%")
-            elif row['close'] <= row['BB_Lower']:
-                last_buy_price_global = row['close']  # Cập nhật giá mua toàn cục
-                profit_loss = ((current_price - last_buy_price_global) / last_buy_price_global) * 100
-                profit_icon = "\U0001F7E2" if profit_loss >= 0 else "\U0001F534"
-                signals_past.append(f"\U0001F7E2 Mua: Giá {row['close']:.2f} {unit} vào lúc {row['timestamp'].strftime('%Y-%m-%d %H:%M:%S')}. {profit_icon} Lãi/Lỗ: {profit_loss:.2f}%")
-
-            # Tín hiệu bán trong 7 ngày qua
-            if row['close'] < row['MA50'] and row['MACD'] < row['Signal'] and row['RSI'] > 70:
-                if last_buy_price_global is not None:  # Sử dụng giá mua toàn cục
-                    profit_loss = ((row['close'] - last_buy_price_global) / last_buy_price_global) * 100
-                    profit_icon = "\U0001F7E2" if profit_loss >= 0 else "\U0001F534"
-                    signals_past.append(f"\U0001F534 Bán: Giá {row['close']:.2f} {unit} vào lúc {row['timestamp'].strftime('%Y-%m-%d %H:%M:%S')}. {profit_icon} Lãi/Lỗ: {profit_loss:.2f}%")
-            elif row['close'] >= row['BB_Upper']:
-                if last_buy_price_global is not None:  # Sử dụng giá mua toàn cục
-                    profit_loss = ((row['close'] - last_buy_price_global) / last_buy_price_global) * 100
-                    profit_icon = "\U0001F7E2" if profit_loss >= 0 else "\U0001F534"
-                    signals_past.append(f"\U0001F534 Bán: Giá {row['close']:.2f} {unit} vào lúc {row['timestamp'].strftime('%Y-%m-%d %H:%M:%S')}. {profit_icon} Lãi/Lỗ: {profit_loss:.2f}%")
-
-        # Gửi tín hiệu qua Telegram
-        signal_message = f"Tín hiệu giao dịch cho {symbol}:"
-        if signals_past:
-            signal_message += "\n\nTín hiệu trong 7 ngày qua:\n" + "\n".join(signals_past)
-        else:
-            signal_message += "\n\nKhông có tín hiệu trong 7 ngày qua."
-
-        await update.message.reply_text(signal_message)
-
-    except Exception as e:
-        await update.message.reply_text(f"Đã xảy ra lỗi: {e}")
-
 
 async def set_webhook(application: Application):
     """Thiết lập Webhook."""
@@ -667,7 +565,6 @@ def main():
     # Đăng ký các handler
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("chart", chart))
-    application.add_handler(CommandHandler("signal", signal))
     application.add_handler(CommandHandler("top", top))  # Thêm handler cho /top
     application.add_handler(CommandHandler("list", list_signals))
     application.add_handler(CommandHandler("smarttrade", current_price))  # Thêm handler cho /cap
