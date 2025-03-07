@@ -886,7 +886,7 @@ async def desc(update, context):
         await update.message.reply_text(f"Đã xảy ra lỗi: {e}")
 
 async def list30(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Hiển thị tín hiệu mua gần nhất và tín hiệu bán gần nhất của top 30 coin có vốn hóa lớn nhất (chỉ cặp USDT)."""
+    """Hiển thị tín hiệu mua gần nhất và tín hiệu bán gần nhất của top 30 coin có vốn hóa lớn nhất (sắp xếp theo vốn hóa giảm dần, chỉ cặp USDT)."""
     try:
         await update.message.reply_text("📊 Đang tổng hợp tín hiệu mua/bán gần nhất của top 30 coin. Vui lòng chờ...")
 
@@ -905,14 +905,18 @@ async def list30(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             return
 
         data = response.json()
-        top_coins = {coin["symbol"].upper(): coin["id"] for coin in data}
+        top_coins = {coin["symbol"].upper(): {"id": coin["id"], "market_cap": coin["market_cap"]} for coin in data}
 
         # 🟢 Lấy danh sách cặp giao dịch từ KuCoin và lọc những cặp có /USDT
         markets = exchange.load_markets()
         usdt_pairs = [symbol for symbol in markets.keys() if symbol.endswith("/USDT")]
 
-        # 🟢 Lọc ra các cặp có trong top 30 coin
-        relevant_pairs = [pair for pair in usdt_pairs if pair.split("/")[0] in top_coins]
+        # 🟢 Lọc ra các cặp có trong top 30 coin và sắp xếp theo vốn hóa giảm dần
+        relevant_pairs = sorted(
+            [pair for pair in usdt_pairs if pair.split("/")[0] in top_coins],
+            key=lambda pair: top_coins[pair.split("/")[0]]["market_cap"],
+            reverse=True
+        )
 
         timeframe = '2h'
         limit = 500
@@ -960,30 +964,33 @@ async def list30(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 print(f"⚠️ Lỗi khi xử lý {symbol}: {e}")
                 continue
 
-        # 🟢 Tạo danh sách hiển thị
+        # 🟢 Tạo danh sách hiển thị theo thứ tự vốn hóa
         buy_list = []
         sell_list = []
-        for symbol, signal in signals.items():
-            if signal["buy"]:
-                buy_time = signal["buy"][0].strftime('%Y-%m-%d %H:%M:%S')
-                buy_price = signal["buy"][1]
-                buy_list.append(f"🟢 *{symbol}*: Mua {buy_price:.4f} USDT vào {buy_time}")
+        for symbol in relevant_pairs:
+            if symbol in signals:
+                symbol_name = symbol.split("/")[0]  # Lấy tên coin từ cặp giao dịch
 
-            if signal["sell"]:
-                sell_time = signal["sell"][0].strftime('%Y-%m-%d %H:%M:%S')
-                sell_price = signal["sell"][1]
-                sell_list.append(f"🔴 *{symbol}*: Bán {sell_price:.4f} USDT vào {sell_time}")
+                if signals[symbol]["buy"]:
+                    buy_time = signals[symbol]["buy"][0].strftime('%Y-%m-%d %H:%M:%S')
+                    buy_price = signals[symbol]["buy"][1]
+                    buy_list.append(f"🟢 *{symbol_name}*: Mua {buy_price:.4f} USDT vào {buy_time}")
 
-        # 🟢 Gửi danh sách tín hiệu mua gần nhất
+                if signals[symbol]["sell"]:
+                    sell_time = signals[symbol]["sell"][0].strftime('%Y-%m-%d %H:%M:%S')
+                    sell_price = signals[symbol]["sell"][1]
+                    sell_list.append(f"🔴 *{symbol_name}*: Bán {sell_price:.4f} USDT vào {sell_time}")
+
+        # 🟢 Gửi danh sách tín hiệu mua gần nhất (sắp xếp theo vốn hóa)
         if buy_list:
-            buy_message = "📈 *Tín hiệu MUA gần nhất của top 30 coin:* \n\n" + "\n".join(buy_list)
+            buy_message = "📈 *Tín hiệu MUA gần nhất của top 30 coin (xếp theo vốn hóa):* \n\n" + "\n".join(buy_list)
             await update.message.reply_text(buy_message, parse_mode="Markdown")
         else:
             await update.message.reply_text("⚠️ Hiện không có tín hiệu MUA nào.")
 
-        # 🔴 Gửi danh sách tín hiệu bán gần nhất
+        # 🔴 Gửi danh sách tín hiệu bán gần nhất (sắp xếp theo vốn hóa)
         if sell_list:
-            sell_message = "📉 *Tín hiệu BÁN gần nhất của top 30 coin:* \n\n" + "\n".join(sell_list)
+            sell_message = "📉 *Tín hiệu BÁN gần nhất của top 30 coin (xếp theo vốn hóa):* \n\n" + "\n".join(sell_list)
             await update.message.reply_text(sell_message, parse_mode="Markdown")
         else:
             await update.message.reply_text("⚠️ Hiện không có tín hiệu BÁN nào.")
