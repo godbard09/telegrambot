@@ -34,7 +34,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         "Gõ /signal <mã giao dịch> để xem lịch sử tín hiệu mua bán trong 7 ngày qua.\n"
         "Gõ /smarttrade <mã giao dịch> để xem thông tin và tín hiệu mua bán mới nhất.\n"
         "Gõ /list để xem top 10 cặp giao dịch có tín hiệu mua bán gần đây.\n"
-        "Gõ /list30 để xem tín hiệu mua/bán gần đây nhất của top 30 coin.\n"
         "Gõ /info để xem thông tin đồng coin.\n"
         "Gõ /heatmap để xem heatmap của 100 đồng coin.\n"
         "Gõ /desc để xem mô tả đồng coin."
@@ -886,111 +885,6 @@ async def desc(update, context):
     except Exception as e:
         await update.message.reply_text(f"Đã xảy ra lỗi: {e}")
 
-async def list30(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Lấy tín hiệu mua và bán gần nhất của top 30 coin có vốn hóa lớn nhất (chỉ lấy cặp /USDT, tín hiệu từ KuCoin)."""
-    try:
-        # 🔹 1. Lấy danh sách top 30 coin từ CoinGecko
-        url = "https://api.coingecko.com/api/v3/coins/markets"
-        params = {
-            "vs_currency": "usd",
-            "order": "market_cap_desc",
-            "per_page": 30,  # Chỉ lấy top 30 coin
-            "page": 1,
-            "sparkline": False
-        }
-        response = requests.get(url, params=params)
-        data = response.json()
-
-        if response.status_code != 200 or not data:
-            await update.message.reply_text("❌ Không thể lấy dữ liệu từ CoinGecko. Vui lòng thử lại sau!")
-            return
-
-        # 🔹 2. Chỉ lấy các cặp giao dịch `COIN/USDT`
-        top30_symbols = [f"{coin['symbol'].upper()}/USDT" for coin in data]
-
-        timeframe = '2h'
-        limit = 500
-        list30_buy = []
-        list30_sell = []
-
-        for pair in top30_symbols:
-            try:
-                # 🔹 3. Lấy dữ liệu từ KuCoin
-                ohlcv_data = exchange.fetch_ohlcv(pair, timeframe, limit=limit)
-                df_list30 = pd.DataFrame(ohlcv_data, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
-                df_list30['timestamp'] = (
-                    pd.to_datetime(df_list30['timestamp'], unit='ms')
-                    .dt.tz_localize('UTC')
-                    .dt.tz_convert(vietnam_tz)
-                )
-
-                # 🔹 4. Tính toán chỉ báo kỹ thuật
-                df_list30['MA50'] = df_list30['close'].rolling(window=50).mean()
-                df_list30['EMA12'] = df_list30['close'].ewm(span=12).mean()
-                df_list30['EMA26'] = df_list30['close'].ewm(span=26).mean()
-                df_list30['MACD'] = df_list30['EMA12'] - df_list30['EMA26']
-                df_list30['Signal'] = df_list30['MACD'].ewm(span=9).mean()
-                delta_list30 = df_list30['close'].diff()
-                gain_list30 = (delta_list30.where(delta_list30 > 0, 0)).rolling(window=14).mean()
-                loss_list30 = (-delta_list30.where(delta_list30 < 0, 0)).rolling(window=14).mean()
-                rs_list30 = gain_list30 / loss_list30
-                df_list30['RSI'] = 100 - (100 / (1 + rs_list30))
-                df_list30['BB_Middle'] = df_list30['close'].rolling(window=20).mean()
-                df_list30['BB_Upper'] = df_list30['BB_Middle'] + 2 * df_list30['close'].rolling(window=20).std()
-                df_list30['BB_Lower'] = df_list30['BB_Middle'] - 2 * df_list30['close'].rolling(window=20).std()
-
-                # 🔹 5. Tìm tín hiệu mua gần nhất
-                buy_signal = None
-                for _, row in df_list30[::-1].iterrows():
-                    if row['close'] > row['MA50'] and row['MACD'] > row['Signal'] and row['RSI'] < 30:
-                        buy_signal = row
-                        break
-                    elif row['close'] <= row['BB_Lower']:
-                        buy_signal = row
-                        break
-
-                # 🔹 6. Tìm tín hiệu bán gần nhất
-                sell_signal = None
-                for _, row in df_list30[::-1].iterrows():
-                    if row['close'] < row['MA50'] and row['MACD'] < row['Signal'] and row['RSI'] > 70:
-                        sell_signal = row
-                        break
-                    elif row['close'] >= row['BB_Upper']:
-                        sell_signal = row
-                        break
-
-                # 🔹 7. Tính lãi/lỗ nếu có cả tín hiệu mua & bán
-                if buy_signal and sell_signal:
-                    profit_loss_list30 = ((sell_signal['close'] - buy_signal['close']) / buy_signal['close']) * 100
-                    profit_icon = "🟢" if profit_loss_list30 > 0 else "🔴"
-                    list30_buy.append((pair, buy_signal['timestamp'], buy_signal['close'], profit_loss_list30, profit_icon))
-                    list30_sell.append((pair, sell_signal['timestamp'], sell_signal['close'], profit_loss_list30, profit_icon))
-
-            except Exception as e:
-                print(f"Lỗi khi xử lý {pair}: {e}")
-                continue
-
-        # 🔹 8. Tạo danh sách tin nhắn theo format giống hình mẫu
-        msg_buy_list30 = ["📊 *Tín hiệu MUA gần nhất của top 30 coin (xếp theo vốn hóa):*\n"]
-        msg_sell_list30 = ["📊 *Tín hiệu BÁN gần nhất của top 30 coin (xếp theo vốn hóa):*\n"]
-
-        for pair, buy_time, buy_price, profit_loss, profit_icon in list30_buy:
-            msg_buy_list30.append(
-                f"🟢 *{pair.split('/')[0]}*: Mua {buy_price:.4f} USDT vào {buy_time.strftime('%Y-%m-%d %H:%M:%S')} → {profit_icon} {profit_loss:.2f}%"
-            )
-
-        for pair, sell_time, sell_price, profit_loss, profit_icon in list30_sell:
-            msg_sell_list30.append(
-                f"🔴 *{pair.split('/')[0]}*: Bán {sell_price:.4f} USDT vào {sell_time.strftime('%Y-%m-%d %H:%M:%S')} → {profit_icon} {profit_loss:.2f}%"
-            )
-
-        # 🔹 9. Gửi tin nhắn
-        await update.message.reply_text("\n".join(msg_buy_list30), parse_mode="Markdown")
-        await update.message.reply_text("\n".join(msg_sell_list30), parse_mode="Markdown")
-
-    except Exception as e:
-        await update.message.reply_text(f"❌ Đã xảy ra lỗi: {e}")
-
 
 async def set_webhook(application: Application):
     """Thiết lập Webhook."""
@@ -1015,7 +909,6 @@ def main():
     application.add_handler(CallbackQueryHandler(button))  # Thêm handler cho nút bấm từ /top
     application.add_handler(CommandHandler("heatmap", heatmap))
     application.add_handler(CommandHandler("desc", desc))
-    application.add_handler(CommandHandler("list30", list30))
 
     # Chạy webhook
     application.run_webhook(
