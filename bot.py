@@ -557,27 +557,41 @@ async def list_signals(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
 
 async def signal(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Phân tích tín hiệu mua/bán trong 7 ngày qua, sắp xếp theo thời gian và tính lãi/lỗ đúng cách."""
+    """Phân tích và gửi tín hiệu mua bán."""
     try:
         symbol = context.args[0] if context.args else None
         if not symbol:
-            await update.message.reply_text("❌ Vui lòng cung cấp mã giao dịch. Ví dụ: /signal BTC/USDT")
+            await update.message.reply_text("Vui lòng cung cấp mã giao dịch. Ví dụ: /signal BTC/USDT")
+            return
+
+        # Xác định đơn vị giá từ cặp giao dịch
+        if "/" in symbol:
+            base, quote = symbol.split("/")
+            unit = quote
+        else:
+            await update.message.reply_text("Cặp giao dịch không hợp lệ. Vui lòng sử dụng định dạng như BTC/USDT.")
             return
 
         timeframe = '2h'
-        limit = 1000  # Tăng limit để có thể tìm giá mua cũ
-        markets = exchange.load_markets()
+        limit = 500
 
+        markets = exchange.load_markets()
         if symbol not in markets:
-            await update.message.reply_text(f"⚠️ Mã giao dịch không hợp lệ: {symbol}. Vui lòng kiểm tra lại.")
+            await update.message.reply_text(f"Mã giao dịch không hợp lệ: {symbol}. Vui lòng kiểm tra lại.")
             return
 
         ohlcv = exchange.fetch_ohlcv(symbol, timeframe, limit=limit)
         df = pd.DataFrame(ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
-        df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms').dt.tz_localize('UTC').dt.tz_convert(vietnam_tz)
+        # Chuyển đổi timestamp sang giờ Việt Nam
+        df['timestamp'] = (
+            pd.to_datetime(df['timestamp'], unit='ms')
+            .dt.tz_localize('UTC')
+            .dt.tz_convert(vietnam_tz)
+        )
 
-        # Tính toán chỉ báo kỹ thuật
+        # Tính toán các chỉ báo kỹ thuật
         df['MA50'] = df['close'].rolling(window=50).mean()
+        df['MA100'] = df['close'].rolling(window=100).mean()
         df['EMA12'] = df['close'].ewm(span=12).mean()
         df['EMA26'] = df['close'].ewm(span=26).mean()
         df['MACD'] = df['EMA12'] - df['EMA26']
@@ -591,74 +605,59 @@ async def signal(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         df['BB_Upper'] = df['BB_Middle'] + 2 * df['close'].rolling(window=20).std()
         df['BB_Lower'] = df['BB_Middle'] - 2 * df['close'].rolling(window=20).std()
 
-        # Xác định tín hiệu trong 7 ngày qua
-        signals = []
-        last_buy_price = None  # Giá mua gần nhất (có thể vượt quá 7 ngày)
-        last_buy_time = None  # Thời gian của giá mua gần nhất
+        # Phát hiện tín hiệu mua bán hiện tại
+        last_row = df.iloc[-1]  # Lấy dòng dữ liệu cuối cùng
+        signals_now = []
+        last_buy_price = None
+        last_buy_price_global = None  # Lưu giá mua gần nhất hợp lệ
+
+        # Thời điểm và giá hiện tại
+        current_time = last_row['timestamp'].strftime('%Y-%m-%d %H:%M:%S')
+        current_price = last_row['close']
+
+        # Phát hiện tín hiệu mua bán trong 7 ngày qua
+        signals_past = []
         now = pd.Timestamp.now(tz=vietnam_tz)
-        seven_days_ago = now - pd.Timedelta(days=7)
+        for index, row in df.iterrows():
+            if row['timestamp'] < (now - pd.Timedelta(days=7)):
+                continue
 
-        # **Duyệt từ cũ đến mới để lưu giá mua gần nhất**
-        for _, row in df.iterrows():
-            # Nếu là tín hiệu MUA, lưu lại giá và thời gian
+            # Tín hiệu mua trong 7 ngày qua
             if row['close'] > row['MA50'] and row['MACD'] > row['Signal'] and row['RSI'] < 30:
-                last_buy_price = row['close']
-                last_buy_time = row['timestamp']
+                last_buy_price_global = row['close']  # Cập nhật giá mua toàn cục
+                profit_loss = ((current_price - last_buy_price_global) / last_buy_price_global) * 100
+                profit_icon = "\U0001F7E2" if profit_loss >= 0 else "\U0001F534"
+                signals_past.append(f"\U0001F7E2 Mua: Giá {row['close']:.2f} {unit} vào lúc {row['timestamp'].strftime('%Y-%m-%d %H:%M:%S')}. {profit_icon} Lãi/Lỗ: {profit_loss:.2f}%")
             elif row['close'] <= row['BB_Lower']:
-                last_buy_price = row['close']
-                last_buy_time = row['timestamp']
+                last_buy_price_global = row['close']  # Cập nhật giá mua toàn cục
+                profit_loss = ((current_price - last_buy_price_global) / last_buy_price_global) * 100
+                profit_icon = "\U0001F7E2" if profit_loss >= 0 else "\U0001F534"
+                signals_past.append(f"\U0001F7E2 Mua: Giá {row['close']:.2f} {unit} vào lúc {row['timestamp'].strftime('%Y-%m-%d %H:%M:%S')}. {profit_icon} Lãi/Lỗ: {profit_loss:.2f}%")
 
-        # **Duyệt lại từ mới đến cũ để lấy tín hiệu giao dịch**
-        for _, row in df[::-1].iterrows():
-            if row['timestamp'] < seven_days_ago:
-                break  # Chỉ lấy tín hiệu trong 7 ngày qua
-
-            # Xác định tín hiệu MUA
-            if row['close'] > row['MA50'] and row['MACD'] > row['Signal'] and row['RSI'] < 30:
-                last_buy_price = row['close']
-                last_buy_time = row['timestamp']
-                signals.append({"type": "🟢 MUA", "price": row['close'], "timestamp": row['timestamp']})
-            elif row['close'] <= row['BB_Lower']:
-                last_buy_price = row['close']
-                last_buy_time = row['timestamp']
-                signals.append({"type": "🟢 MUA", "price": row['close'], "timestamp": row['timestamp']})
-
-            # Xác định tín hiệu BÁN
+            # Tín hiệu bán trong 7 ngày qua
             if row['close'] < row['MA50'] and row['MACD'] < row['Signal'] and row['RSI'] > 70:
-                signals.append({"type": "🔴 BÁN", "price": row['close'], "timestamp": row['timestamp'], "buy_price": last_buy_price, "buy_time": last_buy_time})
+                if last_buy_price_global is not None:  # Sử dụng giá mua toàn cục
+                    profit_loss = ((row['close'] - last_buy_price_global) / last_buy_price_global) * 100
+                    profit_icon = "\U0001F7E2" if profit_loss >= 0 else "\U0001F534"
+                    signals_past.append(f"\U0001F534 Bán: Giá {row['close']:.2f} {unit} vào lúc {row['timestamp'].strftime('%Y-%m-%d %H:%M:%S')}. {profit_icon} Lãi/Lỗ: {profit_loss:.2f}%")
             elif row['close'] >= row['BB_Upper']:
-                signals.append({"type": "🔴 BÁN", "price": row['close'], "timestamp": row['timestamp'], "buy_price": last_buy_price, "buy_time": last_buy_time})
+                if last_buy_price_global is not None:  # Sử dụng giá mua toàn cục
+                    profit_loss = ((row['close'] - last_buy_price_global) / last_buy_price_global) * 100
+                    profit_icon = "\U0001F7E2" if profit_loss >= 0 else "\U0001F534"
+                    signals_past.append(f"\U0001F534 Bán: Giá {row['close']:.2f} {unit} vào lúc {row['timestamp'].strftime('%Y-%m-%d %H:%M:%S')}. {profit_icon} Lãi/Lỗ: {profit_loss:.2f}%")
 
-        # Sắp xếp tín hiệu theo thời gian (mới nhất → cũ nhất)
-        signals.sort(key=lambda x: x['timestamp'], reverse=True)
+        # Gửi tín hiệu qua Telegram
+        signal_message = f"Tín hiệu giao dịch cho {symbol}:"
 
-        # Hiển thị tín hiệu theo thời gian
-        signal_message = f"📊 *Tín hiệu giao dịch của {symbol}:*\n\n"
-
-        if signals:
-            for signal in signals:
-                signal_time = signal['timestamp'].strftime('%Y-%m-%d %H:%M:%S')
-                price = signal['price']
-
-                # Nếu là tín hiệu bán, tính lãi/lỗ
-                if signal['type'] == "🔴 BÁN" and signal.get("buy_price") is not None:
-                    buy_price = signal['buy_price']
-                    buy_time = signal['buy_time'].strftime('%Y-%m-%d %H:%M:%S') if signal['buy_time'] else "Không có dữ liệu"
-                    profit_loss = ((price - buy_price) / buy_price) * 100
-                    profit_icon = "🟢" if profit_loss > 0 else "🔴" if profit_loss < 0 else "🟡"
-                    profit_text = f"\n💰 *Lãi/Lỗ*: {profit_loss:.2f}% {profit_icon}\n📅 *Ngày mua*: {buy_time}"
-                else:
-                    profit_text = ""
-
-                signal_message += f"{signal['type']}: {price:.2f} USDT vào {signal_time}{profit_text}\n"
-                signal_message += "➖➖➖➖➖➖➖➖\n"  # Dòng phân cách để dễ đọc
+        if signals_past:
+            signal_message += "\n\nTín hiệu trong 7 ngày qua:\n" + "\n".join(signals_past)
         else:
-            signal_message += "⚠️ *Không có tín hiệu trong 7 ngày qua.*"
+            signal_message += "\n\nKhông có tín hiệu trong 7 ngày qua."
 
-        await update.message.reply_text(signal_message, parse_mode="Markdown")
+        await update.message.reply_text(signal_message)
 
     except Exception as e:
-        await update.message.reply_text(f"❌ Đã xảy ra lỗi: {e}")
+        await update.message.reply_text(f"Đã xảy ra lỗi: {e}")
 
 
 async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
