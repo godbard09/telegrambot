@@ -951,7 +951,7 @@ async def trending(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await update.message.reply_text(f"❌ Lỗi khi lấy dữ liệu: {e}")
 
 async def list10(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Lấy tín hiệu gần nhất, tính lãi/lỗ và thêm 'Vị thế hiện tại' như /smarttrade."""
+    """Lấy tín hiệu gần nhất, tính lãi/lỗ và thêm 'Vị thế hiện tại' như /smarttrade (Fix lỗi datetime)."""
     try:
         await update.message.reply_text("📊 Đang quét tín hiệu của 10 coin lớn nhất... Vui lòng chờ!")
 
@@ -960,7 +960,7 @@ async def list10(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         params = {
             "vs_currency": "usd",
             "order": "market_cap_desc",
-            "per_page": 12,  # Lấy 12 coin để thay thế nếu cần
+            "per_page": 12,
             "page": 1,
             "sparkline": False
         }
@@ -972,33 +972,33 @@ async def list10(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             return
 
         # 🔹 Lọc bỏ USDT, STETH và giữ nguyên thứ hạng vốn hóa thực tế
-        exchange_markets = exchange.load_markets()  # Lấy danh sách cặp giao dịch từ KuCoin
+        exchange_markets = exchange.load_markets()
         top_10_coins = []
-        coin_ranks = {}  # Lưu trữ thứ hạng vốn hóa thực tế
-        actual_rank = 1  # Thứ hạng thực từ CoinGecko
+        coin_ranks = {}
+        actual_rank = 1
 
         for coin in data:
             symbol = coin["symbol"].upper()
             pair = f"{symbol}/USDT"
-            if symbol not in ["USDT", "STETH"] and pair in exchange_markets:  # Chỉ lấy coin có cặp USDT trên KuCoin
+            if symbol not in ["USDT", "STETH"] and pair in exchange_markets:
                 top_10_coins.append(pair)
-                coin_ranks[pair] = f"#{actual_rank}"  # Ghi nhớ thứ hạng vốn hóa thực
-            actual_rank += 1  # Luôn tăng thứ hạng theo CoinGecko
-            if len(top_10_coins) == 10:  # Chỉ lấy đúng 10 coin có thể giao dịch
+                coin_ranks[pair] = f"#{actual_rank}"
+            actual_rank += 1
+            if len(top_10_coins) == 10:
                 break
 
         timeframe = '2h'
-        limit = 500  # Giống hệt /smarttrade
+        limit = 500
+
+        vietnam_tz = pytz.timezone('Asia/Ho_Chi_Minh')  # Múi giờ Việt Nam
 
         messages = []
         for symbol in top_10_coins:
             try:
-                # Lấy dữ liệu từ KuCoin
                 ohlcv = exchange.fetch_ohlcv(symbol, timeframe, limit=limit)
                 df = pd.DataFrame(ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
-                df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms', utc=True).dt.tz_convert('Asia/Ho_Chi_Minh')
+                df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms', utc=True).dt.tz_convert(vietnam_tz)
 
-                # Tính toán các chỉ báo kỹ thuật
                 df['MA50'] = df['close'].rolling(window=50).mean()
                 df['EMA12'] = df['close'].ewm(span=12).mean()
                 df['EMA26'] = df['close'].ewm(span=26).mean()
@@ -1013,11 +1013,10 @@ async def list10(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 df['BB_Upper'] = df['BB_Middle'] + 2 * df['close'].rolling(window=20).std()
                 df['BB_Lower'] = df['BB_Middle'] - 2 * df['close'].rolling(window=20).std()
 
-                # 🟢 Tìm tín hiệu gần nhất
                 last_buy = None
                 last_signal = None
 
-                for _, row in df[::-1].iterrows():  # Duyệt từ cuối lên đầu (tìm tín hiệu gần nhất)
+                for _, row in df[::-1].iterrows():
                     timestamp_str = row['timestamp'].strftime('%Y-%m-%d %H:%M:%S')
 
                     if row['close'] > row['MA50'] and row['MACD'] > row['Signal'] and row['RSI'] < 30:
@@ -1035,14 +1034,16 @@ async def list10(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                         last_signal = {"type": "BÁN", "price": row['close'], "timestamp": timestamp_str}
                         break
 
-                # 🔄 **Tính lãi/lỗ và vị thế hiện tại**
                 current_price = df.iloc[-1]['close']
                 profit_loss = "Không có dữ liệu"
-                position_status = "THEO DÕI"  # Mặc định là theo dõi nếu tín hiệu quá lâu
+                position_status = "THEO DÕI"
 
                 if last_signal:
-                    signal_age = (df.iloc[-1]['timestamp'] - pd.to_datetime(last_signal["timestamp"])).total_seconds() / 3600
-                    if signal_age <= 2:  # Nếu tín hiệu dưới 2 giờ thì giữ nguyên MUA/BÁN
+                    # 🔥 Fix lỗi datetime: Chuyển timestamp thành tz-aware trước khi trừ
+                    last_signal_time = vietnam_tz.localize(pd.to_datetime(last_signal["timestamp"]))
+
+                    signal_age = (df.iloc[-1]['timestamp'] - last_signal_time).total_seconds() / 3600
+                    if signal_age <= 2:
                         position_status = last_signal["type"]
 
                     if last_signal["type"] == "MUA":
@@ -1055,7 +1056,6 @@ async def list10(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                         profit_icon = "🟢" if profit_percent > 0 else "🔴" if profit_percent < 0 else "🟡"
                         profit_loss = f"{profit_icon} {profit_percent:.2f}%"
 
-                # Nếu không có tín hiệu, hiển thị cảnh báo
                 if not last_signal:
                     signal_text = "⚠️ Không có tín hiệu rõ ràng"
                     profit_loss = "🕵️ Bot tiếp tục theo dõi!"
@@ -1063,7 +1063,6 @@ async def list10(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                     signal_text = f"{'🟢 MUA' if last_signal['type'] == 'MUA' else '🔴 BÁN'} @ {last_signal['price']:.2f} USDT"
                     signal_text += f"\n📅 *Thời điểm:* {last_signal['timestamp']}"
 
-                # **Thêm thứ hạng & vị thế**
                 messages.append(
                     f"📊 *{symbol} {coin_ranks[symbol]}*\n"
                     f"💰 *Giá hiện tại:* {current_price:.2f} USDT\n"
