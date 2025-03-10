@@ -15,12 +15,13 @@ import numpy as np
 import requests
 import traceback
 from datetime import datetime, timezone
+import time
 
 # Token bot từ BotFather
-TOKEN = "8081244500:AAFkXKLfVoXQeqDYVW_HMdXluGELf9AWD3M"
+TOKEN = "8117660223:AAHCEFYmz7GxYd9O7H-wIsp2P-J_o-kxP7s"
 
 # Địa chỉ Webhook (thay YOUR_RENDER_URL bằng URL ứng dụng Render của bạn)
-WEBHOOK_URL = f"https://telegrambot-an3l.onrender.com"
+WEBHOOK_URL = f"https://telegrambot1-08ni.onrender.com"
 # Khởi tạo KuCoin
 exchange = ccxt.kucoin()
 # Lưu trữ lịch sử tín hiệu
@@ -36,9 +37,12 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         "Gõ /signal <mã giao dịch> để xem lịch sử tín hiệu mua bán trong 7 ngày qua.\n"
         "Gõ /smarttrade <mã giao dịch> để xem thông tin và tín hiệu mua bán mới nhất.\n"
         "Gõ /list để xem top 10 cặp giao dịch có tín hiệu mua bán gần đây.\n"
+        "Gõ /list10 để xem tín hiệu mua bán gần đây của 10 cặp giao dịch có vốn hóa lớn nhất thị trường.\n"
         "Gõ /info để xem thông tin đồng coin.\n"
         "Gõ /heatmap để xem heatmap của 100 đồng coin.\n"
-        "Gõ /desc để xem mô tả đồng coin."
+        "Gõ /sentiment để xem sentiment.\n"
+        "Gõ /desc để xem mô tả đồng coin.\n"
+        "Gõ /trending để xem top 15 trend coin."
     )
 
 
@@ -617,13 +621,14 @@ async def signal(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 # ✅ Nếu là tín hiệu MUA -> Hiển thị & Tính lãi/lỗ dựa trên giá hiện tại
                 if (row['close'] > row['MA50'] and row['MACD'] > row['Signal'] and row['RSI'] < 30) or (row['close'] <= row['BB_Lower']):
                     profit_loss = ((df.iloc[-1]['close'] - row['close']) / row['close']) * 100  # Lãi/Lỗ so với giá hiện tại
-                    signals_list.append(f"🟢 Mua: Giá {row['close']:.2f} USDT vào lúc {timestamp_str}. 🟢 Lãi/Lỗ: {profit_loss:.2f}%")
+                    profit_icon = "🟢" if profit_loss > 0 else "🟡" if profit_loss == 0 else "🔴"
+                    signals_list.append(f"🟢 Mua: Giá {row['close']:.2f} USDT vào lúc {timestamp_str}. {profit_icon} Lãi/Lỗ: {profit_loss:.2f}%")
 
                 # ✅ Nếu là tín hiệu BÁN -> Tìm giá mua gần nhất (có thể vượt 7 ngày) để tính lãi/lỗ, nhưng không hiển thị giá mua cũ
                 elif (row['close'] < row['MA50'] and row['MACD'] < row['Signal'] and row['RSI'] > 70) or (row['close'] >= row['BB_Upper']):
                     if last_buy_signal:  # Chỉ tính lãi/lỗ nếu có giá mua trước đó
                         profit_loss = ((row['close'] - last_buy_signal['price']) / last_buy_signal['price']) * 100
-                        profit_icon = "🟢" if profit_loss >= 0 else "🔴"
+                        profit_icon = "🟢" if profit_loss > 0 else "🟡" if profit_loss == 0 else "🔴"
                         signals_list.append(f"🔴 Bán: Giá {row['close']:.2f} USDT vào lúc {timestamp_str}. {profit_icon} Lãi/Lỗ: {profit_loss:.2f}%")
 
         # 📨 Gửi tin nhắn về tín hiệu
@@ -637,10 +642,6 @@ async def signal(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         error_message = f"Lỗi: {e}\n{traceback.format_exc()}"
         print(error_message)
         await update.message.reply_text("❌ Đã xảy ra lỗi. Vui lòng thử lại sau.")
-
-
-
-
 
 
 async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -869,6 +870,218 @@ async def desc(update, context):
     except Exception as e:
         await update.message.reply_text(f"Đã xảy ra lỗi: {e}")
 
+async def sentiment(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Lấy chỉ số Fear & Greed từ alternative.me, hiển thị text và gửi ảnh mới nhất."""
+    try:
+        # Gọi API alternative.me
+        url = "https://api.alternative.me/fng/"
+        response = requests.get(url)
+        data = response.json()
+
+        if "data" not in data or not data["data"]:
+            await update.message.reply_text("❌ Không thể lấy dữ liệu chỉ số Fear & Greed. Vui lòng thử lại sau!")
+            return
+
+        # Lấy thông tin chỉ số
+        fng_data = data["data"][0]
+        value = int(fng_data["value"])
+        status = fng_data["value_classification"]
+        last_updated = datetime.utcfromtimestamp(int(fng_data["timestamp"])).strftime('%Y-%m-%d')
+
+        # Xác định màu và icon phù hợp
+        if value < 25:
+            color = "🔴 (Extreme Fear)"
+        elif value < 50:
+            color = "🟠 (Fear)"
+        elif value < 75:
+            color = "🟢 (Greed)"
+        else:
+            color = "🟢🟢 (Extreme Greed)"
+
+        # URL ảnh (thêm timestamp để tránh cache)
+        timestamp = int(time.time())  # Thời gian hiện tại theo giây
+        image_url = f"https://alternative.me/crypto/fear-and-greed-index.png?{timestamp}"
+
+        # Gửi tin nhắn văn bản trước
+        message = (
+            f"📊 *Crypto Fear & Greed Index*\n"
+            f"📅 *Ngày cập nhật:* {last_updated}\n"
+            f"📈 *Chỉ số hiện tại:* {value}/100\n"
+            f"⚖️ *Tâm lý thị trường:* {status} {color}"
+        )
+        await update.message.reply_text(message, parse_mode="Markdown")
+
+        # Gửi ảnh sau (luôn lấy ảnh mới nhất)
+        await update.message.reply_photo(photo=image_url, caption="🖼 Fear & Greed Index Chart (Updated)")
+
+    except Exception as e:
+        await update.message.reply_text(f"❌ Lỗi khi lấy dữ liệu: {e}")
+
+async def trending(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Lấy danh sách các đồng coin đang trending trên CoinGecko và hiển thị xếp hạng vốn hóa với dấu #."""
+    try:
+        # Gọi API CoinGecko
+        url = "https://api.coingecko.com/api/v3/search/trending"
+        response = requests.get(url)
+        data = response.json()
+
+        if "coins" not in data or not data["coins"]:
+            await update.message.reply_text("❌ Không thể lấy dữ liệu trending. Vui lòng thử lại sau!")
+            return
+
+        # Lấy danh sách top trending coins
+        trending_coins = data["coins"][:15]  # Lấy top 15 coin trending
+
+        # Tạo danh sách hiển thị
+        trending_list = []
+        for index, coin in enumerate(trending_coins, start=1):
+            name = coin["item"]["name"]
+            symbol = coin["item"]["symbol"].upper()
+            market_cap_rank = coin["item"].get("market_cap_rank", "N/A")  # Lấy xếp hạng vốn hóa
+            link = f"[{name} ($ {symbol})](https://www.coingecko.com/en/coins/{coin['item']['id']})"
+            trending_list.append(f"{index}. {link} | #{market_cap_rank}")
+
+        # Tạo nội dung tin nhắn
+        message = "🔥 *Search Trends - Coingecko* 🔥\n\n" + "\n".join(trending_list)
+
+        # Gửi tin nhắn với Markdown
+        await update.message.reply_text(message, parse_mode="Markdown", disable_web_page_preview=True)
+
+    except Exception as e:
+        await update.message.reply_text(f"❌ Lỗi khi lấy dữ liệu: {e}")
+
+async def list10(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Lấy tín hiệu gần nhất và tính lãi/lỗ chuẩn như /smarttrade, hiển thị đúng thứ hạng vốn hóa trên CoinGecko."""
+    try:
+        await update.message.reply_text("📊 Đang quét tín hiệu của 10 coin lớn nhất... Vui lòng chờ!")
+
+        # 🔹 Lấy danh sách 12 đồng coin có vốn hóa lớn nhất từ CoinGecko (để có thể thay thế USDT & STETH nếu cần)
+        url = "https://api.coingecko.com/api/v3/coins/markets"
+        params = {
+            "vs_currency": "usd",
+            "order": "market_cap_desc",
+            "per_page": 12,  # Lấy 12 coin để thay thế nếu cần
+            "page": 1,
+            "sparkline": False
+        }
+        response = requests.get(url, params=params)
+        data = response.json()
+
+        if response.status_code != 200 or not data:
+            await update.message.reply_text("❌ Không thể lấy dữ liệu từ CoinGecko. Vui lòng thử lại sau!")
+            return
+
+        # 🔹 Lọc bỏ USDT, STETH và giữ nguyên thứ hạng vốn hóa thực tế
+        exchange_markets = exchange.load_markets()  # Lấy danh sách cặp giao dịch từ KuCoin
+        top_10_coins = []
+        coin_ranks = {}  # Lưu trữ thứ hạng vốn hóa thực tế
+        actual_rank = 1  # Thứ hạng thực từ CoinGecko
+        filtered_rank = 1  # Thứ hạng sau khi bỏ coin không có cặp USDT trên KuCoin
+
+        for coin in data:
+            symbol = coin["symbol"].upper()
+            pair = f"{symbol}/USDT"
+            if symbol not in ["USDT", "STETH"] and pair in exchange_markets:  # Chỉ lấy coin có cặp USDT trên KuCoin
+                top_10_coins.append(pair)
+                coin_ranks[pair] = f"#{actual_rank}"  # Ghi nhớ thứ hạng vốn hóa thực
+                filtered_rank += 1  # Tăng thứ hạng thực tế
+            actual_rank += 1  # Luôn tăng thứ hạng theo CoinGecko
+            if len(top_10_coins) == 10:  # Chỉ lấy đúng 10 coin có thể giao dịch
+                break
+
+        timeframe = '2h'
+        limit = 500  # Giống hệt /smarttrade
+
+        messages = []
+        for symbol in top_10_coins:
+            try:
+                # Lấy dữ liệu từ KuCoin
+                ohlcv = exchange.fetch_ohlcv(symbol, timeframe, limit=limit)
+                df = pd.DataFrame(ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
+                df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms', utc=True).dt.tz_convert('Asia/Ho_Chi_Minh')
+
+                # Tính toán các chỉ báo kỹ thuật
+                df['MA50'] = df['close'].rolling(window=50).mean()
+                df['EMA12'] = df['close'].ewm(span=12).mean()
+                df['EMA26'] = df['close'].ewm(span=26).mean()
+                df['MACD'] = df['EMA12'] - df['EMA26']
+                df['Signal'] = df['MACD'].ewm(span=9).mean()
+                delta = df['close'].diff()
+                gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
+                loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
+                rs = gain / loss
+                df['RSI'] = 100 - (100 / (1 + rs))
+                df['BB_Middle'] = df['close'].rolling(window=20).mean()
+                df['BB_Upper'] = df['BB_Middle'] + 2 * df['close'].rolling(window=20).std()
+                df['BB_Lower'] = df['BB_Middle'] - 2 * df['close'].rolling(window=20).std()
+
+                # 🟢 Tìm tín hiệu gần nhất
+                last_buy = None
+                last_signal = None
+
+                for _, row in df[::-1].iterrows():  # Duyệt từ cuối lên đầu (tìm tín hiệu gần nhất)
+                    timestamp_str = row['timestamp'].strftime('%Y-%m-%d %H:%M:%S')
+
+                    if row['close'] > row['MA50'] and row['MACD'] > row['Signal'] and row['RSI'] < 30:
+                        last_buy = {"price": row['close'], "timestamp": timestamp_str}
+                        last_signal = {"type": "MUA", "price": row['close'], "timestamp": timestamp_str}
+                        break
+                    elif row['close'] <= row['BB_Lower']:
+                        last_buy = {"price": row['close'], "timestamp": timestamp_str}
+                        last_signal = {"type": "MUA", "price": row['close'], "timestamp": timestamp_str}
+                        break
+                    elif row['close'] < row['MA50'] and row['MACD'] < row['Signal'] and row['RSI'] > 70:
+                        last_signal = {"type": "BÁN", "price": row['close'], "timestamp": timestamp_str}
+                        break
+                    elif row['close'] >= row['BB_Upper']:
+                        last_signal = {"type": "BÁN", "price": row['close'], "timestamp": timestamp_str}
+                        break
+
+                # 🔄 **Tính lãi/lỗ theo loại tín hiệu**
+                current_price = df.iloc[-1]['close']
+                profit_loss = "Không có dữ liệu"
+
+                if last_signal:
+                    if last_signal["type"] == "MUA":
+                        # Nếu tín hiệu gần nhất là MUA → Tính lãi/lỗ dựa trên giá hiện tại
+                        profit_percent = ((current_price - last_signal["price"]) / last_signal["price"]) * 100
+                        profit_icon = "🟢" if profit_percent > 0 else "🔴" if profit_percent < 0 else "🟡"
+                        profit_loss = f"{profit_icon} {profit_percent:.2f}%"
+
+                    elif last_signal["type"] == "BÁN" and last_buy:
+                        # Nếu tín hiệu gần nhất là BÁN → Tìm giá MUA trước đó để tính lãi/lỗ
+                        profit_percent = ((last_signal["price"] - last_buy["price"]) / last_buy["price"]) * 100
+                        profit_icon = "🟢" if profit_percent > 0 else "🔴" if profit_percent < 0 else "🟡"
+                        profit_loss = f"{profit_icon} {profit_percent:.2f}%"
+
+                # Nếu không có tín hiệu, hiển thị cảnh báo
+                if not last_signal:
+                    signal_text = "⚠️ Không có tín hiệu rõ ràng"
+                    profit_loss = "🕵️ Bot tiếp tục theo dõi!"
+                else:
+                    signal_text = f"{'🟢 MUA' if last_signal['type'] == 'MUA' else '🔴 BÁN'} @ {last_signal['price']:.2f} USDT"
+                    signal_text += f"\n📅 *Thời điểm:* {last_signal['timestamp']}"
+
+                # **Thêm thứ hạng #1, #2,...**
+                messages.append(
+                    f"📊 *{symbol} {coin_ranks[symbol]}*\n"
+                    f"💰 *Giá hiện tại:* {current_price:.2f} USDT\n"
+                    f"⚡ *Tín hiệu gần nhất:* {signal_text}\n"
+                    f"📈 *Lãi/Lỗ:* {profit_loss}\n"
+                )
+
+            except Exception as e:
+                messages.append(f"⚠️ Lỗi khi lấy dữ liệu cho {symbol}: {e}")
+
+        # Gửi tin nhắn với danh sách tín hiệu
+        message = "📊 *Tín hiệu giao dịch cho 10 đồng coin lớn nhất:*\n\n" + "\n".join(messages)
+        await update.message.reply_text(message, parse_mode="Markdown")
+
+    except Exception as e:
+        await update.message.reply_text(f"❌ Đã xảy ra lỗi: {e}")
+
+
+
 
 async def set_webhook(application: Application):
     """Thiết lập Webhook."""
@@ -893,6 +1106,10 @@ def main():
     application.add_handler(CallbackQueryHandler(button))  # Thêm handler cho nút bấm từ /top
     application.add_handler(CommandHandler("heatmap", heatmap))
     application.add_handler(CommandHandler("desc", desc))
+    application.add_handler(CommandHandler("sentiment", sentiment))
+    application.add_handler(CommandHandler("trending", trending))
+    application.add_handler(CommandHandler("list10", list10))
+
 
     # Chạy webhook
     application.run_webhook(
@@ -903,8 +1120,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
-
-
-
