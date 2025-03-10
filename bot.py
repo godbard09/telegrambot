@@ -951,11 +951,11 @@ async def trending(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await update.message.reply_text(f"❌ Lỗi khi lấy dữ liệu: {e}")
 
 async def list10(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Lấy tín hiệu gần nhất và tính lãi/lỗ chuẩn như /smarttrade, hiển thị đúng thứ hạng vốn hóa trên CoinGecko."""
+    """Lấy tín hiệu gần nhất, tính lãi/lỗ và thêm 'Vị thế hiện tại' như /smarttrade."""
     try:
         await update.message.reply_text("📊 Đang quét tín hiệu của 10 coin lớn nhất... Vui lòng chờ!")
 
-        # 🔹 Lấy danh sách 12 đồng coin có vốn hóa lớn nhất từ CoinGecko (để có thể thay thế USDT & STETH nếu cần)
+        # 🔹 Lấy danh sách 12 đồng coin có vốn hóa lớn nhất từ CoinGecko (để thay thế nếu cần)
         url = "https://api.coingecko.com/api/v3/coins/markets"
         params = {
             "vs_currency": "usd",
@@ -976,7 +976,6 @@ async def list10(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         top_10_coins = []
         coin_ranks = {}  # Lưu trữ thứ hạng vốn hóa thực tế
         actual_rank = 1  # Thứ hạng thực từ CoinGecko
-        filtered_rank = 1  # Thứ hạng sau khi bỏ coin không có cặp USDT trên KuCoin
 
         for coin in data:
             symbol = coin["symbol"].upper()
@@ -984,7 +983,6 @@ async def list10(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             if symbol not in ["USDT", "STETH"] and pair in exchange_markets:  # Chỉ lấy coin có cặp USDT trên KuCoin
                 top_10_coins.append(pair)
                 coin_ranks[pair] = f"#{actual_rank}"  # Ghi nhớ thứ hạng vốn hóa thực
-                filtered_rank += 1  # Tăng thứ hạng thực tế
             actual_rank += 1  # Luôn tăng thứ hạng theo CoinGecko
             if len(top_10_coins) == 10:  # Chỉ lấy đúng 10 coin có thể giao dịch
                 break
@@ -1037,19 +1035,22 @@ async def list10(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                         last_signal = {"type": "BÁN", "price": row['close'], "timestamp": timestamp_str}
                         break
 
-                # 🔄 **Tính lãi/lỗ theo loại tín hiệu**
+                # 🔄 **Tính lãi/lỗ và vị thế hiện tại**
                 current_price = df.iloc[-1]['close']
                 profit_loss = "Không có dữ liệu"
+                position_status = "THEO DÕI"  # Mặc định là theo dõi nếu tín hiệu quá lâu
 
                 if last_signal:
+                    signal_age = (df.iloc[-1]['timestamp'] - pd.to_datetime(last_signal["timestamp"])).total_seconds() / 3600
+                    if signal_age <= 2:  # Nếu tín hiệu dưới 2 giờ thì giữ nguyên MUA/BÁN
+                        position_status = last_signal["type"]
+
                     if last_signal["type"] == "MUA":
-                        # Nếu tín hiệu gần nhất là MUA → Tính lãi/lỗ dựa trên giá hiện tại
                         profit_percent = ((current_price - last_signal["price"]) / last_signal["price"]) * 100
                         profit_icon = "🟢" if profit_percent > 0 else "🔴" if profit_percent < 0 else "🟡"
                         profit_loss = f"{profit_icon} {profit_percent:.2f}%"
 
                     elif last_signal["type"] == "BÁN" and last_buy:
-                        # Nếu tín hiệu gần nhất là BÁN → Tìm giá MUA trước đó để tính lãi/lỗ
                         profit_percent = ((last_signal["price"] - last_buy["price"]) / last_buy["price"]) * 100
                         profit_icon = "🟢" if profit_percent > 0 else "🔴" if profit_percent < 0 else "🟡"
                         profit_loss = f"{profit_icon} {profit_percent:.2f}%"
@@ -1062,25 +1063,23 @@ async def list10(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                     signal_text = f"{'🟢 MUA' if last_signal['type'] == 'MUA' else '🔴 BÁN'} @ {last_signal['price']:.2f} USDT"
                     signal_text += f"\n📅 *Thời điểm:* {last_signal['timestamp']}"
 
-                # **Thêm thứ hạng #1, #2,...**
+                # **Thêm thứ hạng & vị thế**
                 messages.append(
                     f"📊 *{symbol} {coin_ranks[symbol]}*\n"
                     f"💰 *Giá hiện tại:* {current_price:.2f} USDT\n"
                     f"⚡ *Tín hiệu gần nhất:* {signal_text}\n"
                     f"📈 *Lãi/Lỗ:* {profit_loss}\n"
+                    f"🎯 *Vị thế hiện tại:* {position_status}\n"
                 )
 
             except Exception as e:
                 messages.append(f"⚠️ Lỗi khi lấy dữ liệu cho {symbol}: {e}")
 
-        # Gửi tin nhắn với danh sách tín hiệu
         message = "📊 *Tín hiệu giao dịch cho 10 đồng coin lớn nhất:*\n\n" + "\n".join(messages)
         await update.message.reply_text(message, parse_mode="Markdown")
 
     except Exception as e:
         await update.message.reply_text(f"❌ Đã xảy ra lỗi: {e}")
-
-
 
 
 async def set_webhook(application: Application):
