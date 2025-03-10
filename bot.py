@@ -890,13 +890,13 @@ async def sentiment(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
         # Xác định màu và icon phù hợp
         if value < 25:
-            color = "🔴 (Extreme Fear)"
+            color = "🔴"
         elif value < 50:
-            color = "🟠 (Fear)"
+            color = "🟠"
         elif value < 75:
-            color = "🟢 (Greed)"
+            color = "🟢"
         else:
-            color = "🟢🟢 (Extreme Greed)"
+            color = "🟢🟢"
 
         # URL ảnh (thêm timestamp để tránh cache)
         timestamp = int(time.time())  # Thời gian hiện tại theo giây
