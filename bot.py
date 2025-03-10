@@ -18,10 +18,10 @@ from datetime import datetime, timezone
 import time
 
 # Token bot từ BotFather
-TOKEN = "8117660223:AAHCEFYmz7GxYd9O7H-wIsp2P-J_o-kxP7s"
+TOKEN = "8081244500:AAFkXKLfVoXQeqDYVW_HMdXluGELf9AWD3M"
 
 # Địa chỉ Webhook (thay YOUR_RENDER_URL bằng URL ứng dụng Render của bạn)
-WEBHOOK_URL = f"https://telegrambot1-08ni.onrender.com"
+WEBHOOK_URL = f"https://telegrambot-an3l.onrender.com"
 # Khởi tạo KuCoin
 exchange = ccxt.kucoin()
 # Lưu trữ lịch sử tín hiệu
