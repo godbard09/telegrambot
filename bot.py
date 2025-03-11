@@ -951,7 +951,6 @@ async def trending(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await update.message.reply_text(f"❌ Lỗi khi lấy dữ liệu: {e}")
 
 async def list10(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Lấy tín hiệu gần nhất, tính lãi/lỗ và thêm 'Vị thế hiện tại' như /smarttrade (Fix lỗi datetime)."""
     try:
         await update.message.reply_text("📊 Đang quét tín hiệu của 10 coin lớn nhất... Vui lòng chờ!")
 
@@ -1033,11 +1032,11 @@ async def list10(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                         break
 
                 current_price = df.iloc[-1]['close']
-                profit_loss = "Không có dữ liệu"
+                profit_loss = "🟡 0.00%"
                 position_status = "THEO DÕI"
 
                 if last_signal:
-                    last_signal_time = vietnam_tz.localize(pd.to_datetime(last_signal["timestamp"]))
+                    last_signal_time = pd.to_datetime(last_signal["timestamp"]).tz_localize(vietnam_tz)
 
                     signal_age = (df.iloc[-1]['timestamp'] - last_signal_time).total_seconds() / 3600
                     if signal_age > 2:
@@ -1065,7 +1064,6 @@ async def list10(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
                 if not last_signal:
                     signal_text = "⚠️ Không có tín hiệu rõ ràng"
-                    profit_loss = "🕵️ Bot tiếp tục theo dõi!"
                 else:
                     signal_text = f"{'🟢 MUA' if last_signal['type'] == 'MUA' else '🔴 BÁN'} @ {last_signal['price']:.2f} USDT"
                     signal_text += f"\n📅 *Thời điểm:* {last_signal['timestamp']}"
@@ -1086,6 +1084,7 @@ async def list10(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     except Exception as e:
         await update.message.reply_text(f"❌ Đã xảy ra lỗi: {e}")
+
 
 async def set_webhook(application: Application):
     """Thiết lập Webhook."""
