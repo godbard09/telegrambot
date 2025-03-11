@@ -958,7 +958,7 @@ async def list10(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         params = {
             "vs_currency": "usd",
             "order": "market_cap_desc",
-            "per_page": 15,  # Tăng số lượng để lấy được 13 coin hợp lệ
+            "per_page": 13,  # Tăng số lượng để lấy được 13 coin hợp lệ
             "page": 1,
             "sparkline": False
         }
