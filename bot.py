@@ -958,7 +958,7 @@ async def list10(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         params = {
             "vs_currency": "usd",
             "order": "market_cap_desc",
-            "per_page": 12,
+            "per_page": 15,  # Tăng số lượng để lấy được 13 coin hợp lệ
             "page": 1,
             "sparkline": False
         }
@@ -977,7 +977,7 @@ async def list10(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         for coin in data:
             symbol = coin["symbol"].upper()
             pair = f"{symbol}/USDT"
-            if symbol not in ["USDT", "STETH"] and pair in exchange_markets:
+            if symbol not in ["USDT", "STETH", "USDC"] and pair in exchange_markets:  # Loại bỏ USDC
                 top_10_coins.append(pair)
                 coin_ranks[pair] = f"#{actual_rank}"
             actual_rank += 1
