@@ -1036,9 +1036,10 @@ async def list10(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 position_status = "THEO DÕI"
 
                 if last_signal:
-                    last_signal_time = pd.to_datetime(last_signal["timestamp"]).tz_localize(vietnam_tz)
+                    last_signal_time = pd.Timestamp(last_signal["timestamp"], tz=vietnam_tz)
+                    current_time = df.iloc[-1]['timestamp']
 
-                    signal_age = (df.iloc[-1]['timestamp'] - last_signal_time).total_seconds() / 3600
+                    signal_age = (current_time - last_signal_time).total_seconds() / 3600
                     if signal_age > 2:
                         position_status = "THEO DÕI"
                     else:
@@ -1084,6 +1085,7 @@ async def list10(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     except Exception as e:
         await update.message.reply_text(f"❌ Đã xảy ra lỗi: {e}")
+
 
 
 async def set_webhook(application: Application):
