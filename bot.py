@@ -1036,8 +1036,8 @@ async def list10(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 position_status = "THEO DÕI"
 
                 if last_signal:
-                    last_signal_time = pd.Timestamp(last_signal["timestamp"], tz=vietnam_tz)
-                    current_time = df.iloc[-1]['timestamp']
+                    last_signal_time = pd.Timestamp(last_signal["timestamp"]).tz_localize(vietnam_tz)
+                    current_time = pd.Timestamp.now(tz=vietnam_tz)
 
                     signal_age = (current_time - last_signal_time).total_seconds() / 3600
                     if signal_age > 2:
