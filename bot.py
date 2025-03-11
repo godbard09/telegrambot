@@ -955,7 +955,6 @@ async def list10(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     try:
         await update.message.reply_text("📊 Đang quét tín hiệu của 10 coin lớn nhất... Vui lòng chờ!")
 
-        # 🔹 Lấy danh sách 12 đồng coin có vốn hóa lớn nhất từ CoinGecko (để thay thế nếu cần)
         url = "https://api.coingecko.com/api/v3/coins/markets"
         params = {
             "vs_currency": "usd",
@@ -971,7 +970,6 @@ async def list10(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             await update.message.reply_text("❌ Không thể lấy dữ liệu từ CoinGecko. Vui lòng thử lại sau!")
             return
 
-        # 🔹 Lọc bỏ USDT, STETH và giữ nguyên thứ hạng vốn hóa thực tế
         exchange_markets = exchange.load_markets()
         top_10_coins = []
         coin_ranks = {}
@@ -990,7 +988,7 @@ async def list10(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         timeframe = '2h'
         limit = 500
 
-        vietnam_tz = pytz.timezone('Asia/Ho_Chi_Minh')  # Múi giờ Việt Nam
+        vietnam_tz = pytz.timezone('Asia/Ho_Chi_Minh')
 
         messages = []
         for symbol in top_10_coins:
@@ -1039,22 +1037,31 @@ async def list10(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 position_status = "THEO DÕI"
 
                 if last_signal:
-                    # 🔥 Fix lỗi datetime: Chuyển timestamp thành tz-aware trước khi trừ
                     last_signal_time = vietnam_tz.localize(pd.to_datetime(last_signal["timestamp"]))
 
                     signal_age = (df.iloc[-1]['timestamp'] - last_signal_time).total_seconds() / 3600
-                    if signal_age <= 2:
+                    if signal_age > 2:
+                        position_status = "THEO DÕI"
+                    else:
                         position_status = last_signal["type"]
 
                     if last_signal["type"] == "MUA":
                         profit_percent = ((current_price - last_signal["price"]) / last_signal["price"]) * 100
-                        profit_icon = "🟢" if profit_percent > 0 else "🔴" if profit_percent < 0 else "🟡"
-                        profit_loss = f"{profit_icon} {profit_percent:.2f}%"
+                        if profit_percent > 0:
+                            profit_loss = f"🟢 {profit_percent:.2f}%"
+                        elif profit_percent < 0:
+                            profit_loss = f"🔴 {profit_percent:.2f}%"
+                        else:
+                            profit_loss = "🟡 0.00%"
 
                     elif last_signal["type"] == "BÁN" and last_buy:
                         profit_percent = ((last_signal["price"] - last_buy["price"]) / last_buy["price"]) * 100
-                        profit_icon = "🟢" if profit_percent > 0 else "🔴" if profit_percent < 0 else "🟡"
-                        profit_loss = f"{profit_icon} {profit_percent:.2f}%"
+                        if profit_percent > 0:
+                            profit_loss = f"🟢 {profit_percent:.2f}%"
+                        elif profit_percent < 0:
+                            profit_loss = f"🔴 {profit_percent:.2f}%"
+                        else:
+                            profit_loss = "🟡 0.00%"
 
                 if not last_signal:
                     signal_text = "⚠️ Không có tín hiệu rõ ràng"
@@ -1079,7 +1086,6 @@ async def list10(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     except Exception as e:
         await update.message.reply_text(f"❌ Đã xảy ra lỗi: {e}")
-
 
 async def set_webhook(application: Application):
     """Thiết lập Webhook."""
