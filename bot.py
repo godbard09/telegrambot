@@ -874,7 +874,7 @@ async def desc(update, context):
         await update.message.reply_text(f"Đã xảy ra lỗi: {e}")
 
 async def sentiment(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Lấy chỉ số Fear & Greed từ alternative.me, hiển thị text và gửi ảnh mới nhất."""
+    """Lấy chỉ số Fear & Greed từ alternative.me, hiển thị ảnh kèm text trong cùng một tin nhắn."""
     try:
         # Gọi API alternative.me
         url = "https://api.alternative.me/fng/"
@@ -905,20 +905,20 @@ async def sentiment(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         timestamp = int(time.time())  # Thời gian hiện tại theo giây
         image_url = f"https://alternative.me/crypto/fear-and-greed-index.png?{timestamp}"
 
-        # Gửi tin nhắn văn bản trước
-        message = (
+        # Nội dung tin nhắn
+        caption = (
             f"📊 *Crypto Fear & Greed Index*\n"
             f"📅 *Ngày cập nhật:* {last_updated}\n"
             f"📈 *Chỉ số hiện tại:* {value}/100\n"
             f"⚖️ *Tâm lý thị trường:* {status} {color}"
         )
-        await update.message.reply_text(message, parse_mode="Markdown")
 
-        # Gửi ảnh sau (luôn lấy ảnh mới nhất)
-        await update.message.reply_photo(photo=image_url, caption="🖼 Fear & Greed Index Chart (Updated)")
+        # Gửi ảnh kèm nội dung trong cùng một tin nhắn
+        await update.message.reply_photo(photo=image_url, caption=caption, parse_mode="Markdown")
 
     except Exception as e:
         await update.message.reply_text(f"❌ Lỗi khi lấy dữ liệu: {e}")
+
 
 async def trending(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Lấy danh sách các đồng coin đang trending trên CoinGecko và hiển thị xếp hạng vốn hóa với dấu #."""
