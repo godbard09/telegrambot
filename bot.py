@@ -80,16 +80,22 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
         quote_currency = symbol.split('/')[1]
         ticker = exchange.fetch_ticker(symbol)
-        current_price = ticker['last']
-        percentage_change = ticker['percentage']
+
+        # Kiểm tra và thay thế giá trị None bằng mặc định
+        current_price = ticker.get('last', 0)
+        percentage_change = ticker.get('percentage', 0)
         volume_24h = ticker.get('quoteVolume', 0)
 
-        timestamp = (
-            pd.to_datetime(ticker['timestamp'], unit='ms')
-            .tz_localize('UTC')
-            .tz_convert(vietnam_tz)
-            .strftime('%Y-%m-%d %H:%M:%S')
-        )
+        timestamp_value = ticker.get('timestamp')
+        if timestamp_value:
+            timestamp = (
+                pd.to_datetime(timestamp_value, unit='ms')
+                .tz_localize('UTC')
+                .tz_convert(vietnam_tz)
+                .strftime('%Y-%m-%d %H:%M:%S')
+            )
+        else:
+            timestamp = "Không xác định"
 
         timeframe = '2h'
         limit = 500
@@ -100,7 +106,6 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
             .dt.tz_localize('UTC')
             .dt.tz_convert(vietnam_tz)
         )
-
 
         df['MA50'] = df['close'].rolling(window=50).mean()
         df['MA100'] = df['close'].rolling(window=100).mean()
@@ -155,14 +160,14 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
                 position_info = (
                     f"- Xu hướng: **{trend}**\n"
                     f"- Vị thế hiện tại: **{position_status}**\n"
-                    f"- Ngày mua: {recent_signal['timestamp'].strftime('%Y-%m-%d %H:%M:%S')}\n"
+                    f"- Ngày mua: {recent_signal['timestamp']}\n"
                     f"- Giá mua: {recent_signal['price']:.2f} {quote_currency}\n"
                     f"- Lãi/Lỗ: {profit_color}"
                 )
             elif recent_signal['type'] == "BÁN":
                 buy_signals = [s for s in signals if s['type'] == "MUA" and s['timestamp'] < recent_signal['timestamp']]
                 if buy_signals:
-                    prior_buy = max(buy_signals, key=lambda x: x['timestamp'])  # Chọn lần mua gần nhất
+                    prior_buy = max(buy_signals, key=lambda x: x['timestamp'])  
                     profit_loss = ((recent_signal['price'] - prior_buy['price']) / prior_buy['price']) * 100
                     profit_color = (
                         f"{profit_loss:.2f}% 🟢" if profit_loss > 0 else
@@ -172,21 +177,12 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
                     position_info = (
                         f"- Xu hướng: **{trend}**\n"
                         f"- Vị thế hiện tại: **{position_status}**\n"
-                        f"- Ngày mua: {prior_buy['timestamp'].strftime('%Y-%m-%d %H:%M:%S')}\n"
+                        f"- Ngày mua: {prior_buy['timestamp']}\n"
                         f"- Giá mua: {prior_buy['price']:.2f} {quote_currency}\n"
-                        f"- Ngày bán: {recent_signal['timestamp'].strftime('%Y-%m-%d %H:%M:%S')}\n"
+                        f"- Ngày bán: {recent_signal['timestamp']}\n"
                         f"- Giá bán: {recent_signal['price']:.2f} {quote_currency}\n"
                         f"- Lãi/Lỗ: {profit_color}"
                     )
-                else:
-                    position_info = (
-                        f"- Xu hướng: **{trend}**\n"
-                        f"- Vị thế hiện tại: **{position_status}**\n"
-                        f"- Ngày bán: {recent_signal['timestamp'].strftime('%Y-%m-%d %H:%M:%S')}\n"
-                        f"- Giá bán: {recent_signal['price']:.2f} {quote_currency}\n"
-                        f"- Lãi/Lỗ: Không xác định (không có tín hiệu mua trước đó)."
-                    )
-
 
         message = escape_markdown(
             f"Thông tin giá hiện tại cho {symbol}:\n"
