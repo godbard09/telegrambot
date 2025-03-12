@@ -1040,7 +1040,7 @@ async def fetch_news(category="trending"):
 
 
 async def format_time(iso_time):
-    """Chuyển đổi thời gian từ ISO 8601 sang YYYY/MM/DD (XX phút trước)."""
+    """Chuyển đổi thời gian từ ISO 8601 sang *YYYY/MM/DD (XX phút trước)*."""
     try:
         utc_time = datetime.strptime(iso_time, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
         vietnam_tz = pytz.timezone("Asia/Ho_Chi_Minh")
@@ -1050,13 +1050,13 @@ async def format_time(iso_time):
         now = datetime.now(vietnam_tz)
         time_diff = int((now - local_time).total_seconds() // 60)  # Đổi sang phút
 
-        time_str = local_time.strftime("%Y/%m/%d")
-        time_ago = f"({time_diff} phút trước)" if time_diff < 60 else f"({time_diff // 60} giờ trước)"
+        time_str = local_time.strftime("_%Y/%m/%d_")  # **Chữ nghiêng**
+        time_ago = f"_({time_diff} phút trước)_" if time_diff < 60 else f"_({time_diff // 60} giờ trước)_"
 
         return f"{time_str} {time_ago}"
 
     except Exception as e:
-        return "Không rõ thời gian"
+        return "_Không rõ thời gian_"
 
 
 async def send_news_category(update: Update, category="hot"):
@@ -1093,7 +1093,6 @@ async def news(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text(hot_text, parse_mode="Markdown", disable_web_page_preview=True)
     await update.message.reply_text(recent_text, parse_mode="Markdown", disable_web_page_preview=True)
-
 
 async def set_webhook(application: Application):
     """Thiết lập Webhook."""
