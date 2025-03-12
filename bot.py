@@ -21,6 +21,7 @@ from selenium.webdriver.chrome.service import Service
 from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.options import Options
+import shutil
 
 # Token bot từ BotFather
 TOKEN = "8081244500:AAFkXKLfVoXQeqDYVW_HMdXluGELf9AWD3M"
@@ -1025,14 +1026,21 @@ async def list10(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await update.message.reply_text(f"❌ Đã xảy ra lỗi: {e}")
 
 async def news(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Lấy tin tức từ CryptoPanic bằng Selenium"""
+    """Lấy tin tức từ CryptoPanic bằng Selenium (fix lỗi không tìm thấy Chrome)"""
     try:
+        # Xác định đường dẫn của Google Chrome
+        chrome_path = shutil.which("google-chrome")  # Tìm Chrome trong hệ thống
+        if not chrome_path:
+            await update.message.reply_text("❌ Không tìm thấy Google Chrome! Hãy cài đặt Chrome trước.")
+            return
+
         # Cấu hình Chrome headless (chạy ẩn)
         chrome_options = Options()
         chrome_options.add_argument("--headless")
         chrome_options.add_argument("--disable-gpu")
         chrome_options.add_argument("--no-sandbox")
         chrome_options.add_argument("--disable-dev-shm-usage")
+        chrome_options.binary_location = chrome_path  # Cấu hình đường dẫn Chrome
 
         # Khởi tạo WebDriver
         service = Service(ChromeDriverManager().install())
@@ -1040,18 +1048,16 @@ async def news(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         
         # Truy cập CryptoPanic
         driver.get("https://cryptopanic.com/")
-        driver.implicitly_wait(5)  # Chờ trang load
+        driver.implicitly_wait(5)
 
-        # Tìm các bài báo
-        articles = driver.find_elements(By.CSS_SELECTOR, "article.news-item")[:5]  # Lấy 5 bài đầu tiên
-
+        # Lấy tin tức
+        articles = driver.find_elements(By.CSS_SELECTOR, "article.news-item")[:5]
         if not articles:
             await update.message.reply_text("❌ Không tìm thấy tin tức. Có thể CryptoPanic đã thay đổi giao diện!")
             driver.quit()
             return
 
         message = "📢 *Trending⬆️ News in Crypto 🔥*\n\n"
-
         for article in articles:
             try:
                 title_tag = article.find_element(By.CSS_SELECTOR, "a.news-title")
@@ -1070,7 +1076,6 @@ async def news(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 continue
 
         driver.quit()
-
         await update.message.reply_text(message, parse_mode="Markdown", disable_web_page_preview=True)
 
     except Exception as e:
