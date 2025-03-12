@@ -1039,17 +1039,14 @@ async def fetch_news(category="trending"):
         return None
 
 
-async def send_news(update: Update, context: ContextTypes.DEFAULT_TYPE, category="trending", edit_message=False):
-    """Gửi hoặc chỉnh sửa tin tức theo danh mục."""
+async def send_news_category(update: Update, category="trending"):
+    """Lấy tin tức theo danh mục và trả về nội dung."""
     try:
         news_list = await fetch_news(category)
-
         if not news_list:
-            return
+            return f"❌ Không thể lấy tin tức *{category.upper()}*. Vui lòng thử lại sau!"
 
         messages = []
-        buttons = []
-
         for news in news_list:
             title = news.get("title", "Không có tiêu đề")
             url = news.get("url", "#")
@@ -1059,54 +1056,27 @@ async def send_news(update: Update, context: ContextTypes.DEFAULT_TYPE, category
             messages.append(f"📰 *{title}*\n🕒 {time_posted} | 🌍 [{source}]({url})\n")
 
         category_titles = {
-            "trending": "Trending 🔼 News in Crypto 🔥",
-            "hot": "Hot 🔥 News in Crypto 🔥",
-            "latest": "Recent 🕒 News in Crypto 🔥"
+            "trending": "📢 *Trending 🔼 News in Crypto 🔥*",
+            "hot": "🔥 *Hot News in Crypto 🔥*",
+            "latest": "🕒 *Recent News in Crypto 🔥*"
         }
 
-        message_text = f"📢 *{category_titles.get(category, 'Crypto News')}*\n\n" + "\n".join(messages)
-
-        category_buttons = [
-            [InlineKeyboardButton("Trending 🔼", callback_data="news_trending"),
-             InlineKeyboardButton("Hot 🔥", callback_data="news_hot"),
-             InlineKeyboardButton("Recent 🕒", callback_data="news_recent")]
-        ]
-
-        # Xử lý chỉnh sửa hoặc gửi tin nhắn mới
-        if edit_message:
-            await update.callback_query.message.edit_text(
-                message_text, parse_mode="Markdown", disable_web_page_preview=True,
-                reply_markup=InlineKeyboardMarkup(category_buttons)
-            )
-        else:
-            await update.message.reply_text(
-                message_text, parse_mode="Markdown", disable_web_page_preview=True,
-                reply_markup=InlineKeyboardMarkup(category_buttons)
-            )
+        return f"{category_titles.get(category, 'Crypto News')}\n\n" + "\n".join(messages)
 
     except Exception as e:
-        print(f"❌ Lỗi khi gửi tin tức: {e}")
+        return f"❌ Lỗi khi lấy tin tức: {e}"
 
 
 async def news(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Xử lý lệnh /news."""
-    if update.message:
-        await send_news(update, context, category="trending", edit_message=False)
+    """Gửi cả 3 danh mục Trending 🔼, Hot 🔥, Recent 🕒 khi gõ /news."""
+    trending_text = await send_news_category(update, category="trending")
+    hot_text = await send_news_category(update, category="hot")
+    recent_text = await send_news_category(update, category="latest")
 
+    await update.message.reply_text(trending_text, parse_mode="Markdown", disable_web_page_preview=True)
+    await update.message.reply_text(hot_text, parse_mode="Markdown", disable_web_page_preview=True)
+    await update.message.reply_text(recent_text, parse_mode="Markdown", disable_web_page_preview=True)
 
-async def news_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Cập nhật tin tức khi bấm vào Trending 🔼 | Hot 🔥 | Recent 🕒."""
-    query = update.callback_query
-    await query.answer()
-
-    category_map = {
-        "news_trending": "trending",
-        "news_hot": "hot",
-        "news_recent": "latest"
-    }
-
-    if query.data in category_map:
-        await send_news(update, context, category=category_map[query.data], edit_message=True)
 
 
 async def set_webhook(application: Application):
@@ -1136,7 +1106,6 @@ def main():
     application.add_handler(CommandHandler("trending", trending))
     application.add_handler(CommandHandler("list10", list10))
     application.add_handler(CommandHandler("news", news))
-    application.add_handler(CallbackQueryHandler(news_callback, pattern="^news_"))
 
 
 
