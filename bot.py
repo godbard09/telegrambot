@@ -16,7 +16,11 @@ import requests
 import traceback
 from datetime import datetime, timezone
 import time
-from bs4 import BeautifulSoup
+from selenium import webdriver
+from selenium.webdriver.chrome.service import Service
+from webdriver_manager.chrome import ChromeDriverManager
+from selenium.webdriver.common.by import By
+from selenium.webdriver.chrome.options import Options
 
 # Token bot từ BotFather
 TOKEN = "8081244500:AAFkXKLfVoXQeqDYVW_HMdXluGELf9AWD3M"
@@ -1021,41 +1025,52 @@ async def list10(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await update.message.reply_text(f"❌ Đã xảy ra lỗi: {e}")
 
 async def news(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Cào tin tức từ CryptoPanic mà không cần API key."""
+    """Lấy tin tức từ CryptoPanic bằng Selenium"""
     try:
-        url = "https://cryptopanic.com/"
-        headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36"
-        }
-        
-        response = requests.get(url, headers=headers)
-        soup = BeautifulSoup(response.text, "lxml")
+        # Cấu hình Chrome headless (chạy ẩn)
+        chrome_options = Options()
+        chrome_options.add_argument("--headless")
+        chrome_options.add_argument("--disable-gpu")
+        chrome_options.add_argument("--no-sandbox")
+        chrome_options.add_argument("--disable-dev-shm-usage")
 
-        # Tìm các tin tức (tùy vào HTML hiện tại của CryptoPanic)
-        articles = soup.find_all("article", class_="news-item")[:5]  # Lấy 5 bài mới nhất
+        # Khởi tạo WebDriver
+        service = Service(ChromeDriverManager().install())
+        driver = webdriver.Chrome(service=service, options=chrome_options)
+        
+        # Truy cập CryptoPanic
+        driver.get("https://cryptopanic.com/")
+        driver.implicitly_wait(5)  # Chờ trang load
+
+        # Tìm các bài báo
+        articles = driver.find_elements(By.CSS_SELECTOR, "article.news-item")[:5]  # Lấy 5 bài đầu tiên
 
         if not articles:
             await update.message.reply_text("❌ Không tìm thấy tin tức. Có thể CryptoPanic đã thay đổi giao diện!")
+            driver.quit()
             return
 
-        # Xây dựng tin nhắn
         message = "📢 *Trending⬆️ News in Crypto 🔥*\n\n"
 
         for article in articles:
-            title_tag = article.find("a", class_="news-title")
-            title = title_tag.text.strip() if title_tag else "No title"
-            url = title_tag["href"] if title_tag else "#"
+            try:
+                title_tag = article.find_element(By.CSS_SELECTOR, "a.news-title")
+                title = title_tag.text.strip()
+                url = title_tag.get_attribute("href")
 
-            source_tag = article.find("a", class_="news-source")
-            source = source_tag.text.strip() if source_tag else "Unknown Source"
+                source_tag = article.find_element(By.CSS_SELECTOR, "a.news-source")
+                source = source_tag.text.strip() if source_tag else "Unknown Source"
 
-            time_tag = article.find("time")
-            time_ago = time_tag.text.strip() if time_tag else "Unknown Time"
+                time_tag = article.find_element(By.CSS_SELECTOR, "time")
+                time_ago = time_tag.text.strip() if time_tag else "Unknown Time"
 
-            message += f"📰 *{title}*\n"
-            message += f"🔗 [{source}]({url}) - 🕒 {time_ago}\n\n"
+                message += f"📰 *{title}*\n"
+                message += f"🔗 [{source}]({url}) - 🕒 {time_ago}\n\n"
+            except:
+                continue
 
-        # Gửi tin nhắn với Markdown
+        driver.quit()
+
         await update.message.reply_text(message, parse_mode="Markdown", disable_web_page_preview=True)
 
     except Exception as e:
