@@ -7,3 +7,4 @@ numpy>=1.22.0
 python-telegram-bot[job-queue]==20.3
 python-telegram-bot[webhooks]==20.3
 beautifulsoup4
+lxml
