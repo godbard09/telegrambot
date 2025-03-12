@@ -1021,18 +1021,33 @@ async def list10(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 CRYPTOPANIC_API_KEY = "b15cebb8a40c84eaae9ed4b2087338a3e1a71873"
 
-async def news(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Lấy tin tức từ CryptoPanic và hiển thị trong Telegram."""
+async def fetch_news(category="trending"):
+    """Lấy tin tức từ CryptoPanic với danh mục (trending, hot, recent)."""
     try:
-        url = f"https://cryptopanic.com/api/v1/posts/?auth_token={CRYPTOPANIC_API_KEY}&filter=trending"
+        url = f"https://cryptopanic.com/api/v1/posts/?auth_token={CRYPTOPANIC_API_KEY}&filter={category}"
         response = requests.get(url)
         data = response.json()
 
         if "results" not in data:
+            return None
+
+        news_list = data["results"][:5]  # Lấy 5 tin tức mới nhất
+        return news_list
+
+    except Exception as e:
+        print(f"Lỗi khi lấy tin tức: {e}")
+        return None
+
+
+async def send_news(update: Update, context: ContextTypes.DEFAULT_TYPE, category="trending"):
+    """Gửi danh sách tin tức theo danh mục."""
+    try:
+        news_list = await fetch_news(category)
+
+        if not news_list:
             await update.message.reply_text("❌ Không thể lấy tin tức. Vui lòng thử lại sau!")
             return
 
-        news_list = data["results"][:5]  # Lấy 5 tin tức mới nhất
         messages = []
         buttons = []
 
@@ -1042,20 +1057,47 @@ async def news(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             source = news.get("source", {}).get("title", "Không rõ nguồn")
             time_posted = news.get("created_at", "Không rõ thời gian")
 
-            messages.append(f"📰 *{title}*\n📅 {time_posted} | 🔗 [{source}]({url})\n")
+            messages.append(f"🔹 *{title}*\n🕒 {time_posted} | 🌍 [{source}]({url})\n")
 
             # Tạo nút bấm cho từng bài báo
             buttons.append([InlineKeyboardButton(title[:40] + "...", url=url)])
 
-        message_text = "🔥 *Trending Crypto News:*\n\n" + "\n".join(messages)
+        message_text = f"📢 *Trending 🔼 News in Crypto 🔥*\n\n" + "\n".join(messages)
+
+        # Tạo nút danh mục tin tức
+        category_buttons = [
+            [InlineKeyboardButton("Trending 🔼", callback_data="news_trending"),
+             InlineKeyboardButton("Hot 🔥", callback_data="news_hot"),
+             InlineKeyboardButton("Recent 🕒", callback_data="news_recent")]
+        ]
 
         await update.message.reply_text(
             message_text, parse_mode="Markdown", disable_web_page_preview=True,
-            reply_markup=InlineKeyboardMarkup(buttons)
+            reply_markup=InlineKeyboardMarkup(buttons + category_buttons)  # Thêm nút dưới danh sách tin
         )
 
     except Exception as e:
         await update.message.reply_text(f"❌ Đã xảy ra lỗi: {e}")
+
+
+async def news(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Xử lý lệnh /news để gửi tin trending."""
+    await send_news(update, context, category="trending")
+
+
+async def news_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Xử lý khi người dùng bấm vào nút Trending, Hot, Recent."""
+    query = update.callback_query
+    await query.answer()
+
+    category_map = {
+        "news_trending": "trending",
+        "news_hot": "hot",
+        "news_recent": "latest"
+    }
+
+    if query.data in category_map:
+        await send_news(query, context, category=category_map[query.data])
 
 
 async def set_webhook(application: Application):
@@ -1085,6 +1127,7 @@ def main():
     application.add_handler(CommandHandler("trending", trending))
     application.add_handler(CommandHandler("list10", list10))
     application.add_handler(CommandHandler("news", news))
+    application.add_handler(CallbackQueryHandler(news_callback, pattern="^news_"))
 
 
 
