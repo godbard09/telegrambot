@@ -16,6 +16,7 @@ import requests
 import traceback
 from datetime import datetime, timezone
 import time
+from bs4 import BeautifulSoup
 
 # Token bot từ BotFather
 TOKEN = "8081244500:AAFkXKLfVoXQeqDYVW_HMdXluGELf9AWD3M"
@@ -1019,7 +1020,46 @@ async def list10(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     except Exception as e:
         await update.message.reply_text(f"❌ Đã xảy ra lỗi: {e}")
 
+async def news(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Cào tin tức từ CryptoPanic mà không cần API key."""
+    try:
+        url = "https://cryptopanic.com/"
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36"
+        }
+        
+        response = requests.get(url, headers=headers)
+        soup = BeautifulSoup(response.text, "lxml")
 
+        # Tìm các tin tức (tùy vào HTML hiện tại của CryptoPanic)
+        articles = soup.find_all("article", class_="news-item")[:5]  # Lấy 5 bài mới nhất
+
+        if not articles:
+            await update.message.reply_text("❌ Không tìm thấy tin tức. Có thể CryptoPanic đã thay đổi giao diện!")
+            return
+
+        # Xây dựng tin nhắn
+        message = "📢 *Trending⬆️ News in Crypto 🔥*\n\n"
+
+        for article in articles:
+            title_tag = article.find("a", class_="news-title")
+            title = title_tag.text.strip() if title_tag else "No title"
+            url = title_tag["href"] if title_tag else "#"
+
+            source_tag = article.find("a", class_="news-source")
+            source = source_tag.text.strip() if source_tag else "Unknown Source"
+
+            time_tag = article.find("time")
+            time_ago = time_tag.text.strip() if time_tag else "Unknown Time"
+
+            message += f"📰 *{title}*\n"
+            message += f"🔗 [{source}]({url}) - 🕒 {time_ago}\n\n"
+
+        # Gửi tin nhắn với Markdown
+        await update.message.reply_text(message, parse_mode="Markdown", disable_web_page_preview=True)
+
+    except Exception as e:
+        await update.message.reply_text(f"❌ Lỗi khi lấy tin tức: {e}")
 
 async def set_webhook(application: Application):
     """Thiết lập Webhook."""
@@ -1047,6 +1087,8 @@ def main():
     application.add_handler(CommandHandler("sentiment", sentiment))
     application.add_handler(CommandHandler("trending", trending))
     application.add_handler(CommandHandler("list10", list10))
+    application.add_handler(CommandHandler("news", news))
+
 
 
     # Chạy webhook
