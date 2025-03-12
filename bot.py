@@ -476,7 +476,7 @@ async def list_signals(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         markets = exchange.load_markets()
         symbols = list(markets.keys())
         timeframe = '2h'
-        limit = 200
+        limit = 500
         buy_signals = []
         sell_signals = []
 
