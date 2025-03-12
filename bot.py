@@ -16,12 +16,6 @@ import requests
 import traceback
 from datetime import datetime, timezone
 import time
-from selenium import webdriver
-from selenium.webdriver.chrome.service import Service
-from webdriver_manager.chrome import ChromeDriverManager
-from selenium.webdriver.common.by import By
-from selenium.webdriver.chrome.options import Options
-import shutil
 
 # Token bot từ BotFather
 TOKEN = "8081244500:AAFkXKLfVoXQeqDYVW_HMdXluGELf9AWD3M"
@@ -1025,61 +1019,44 @@ async def list10(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     except Exception as e:
         await update.message.reply_text(f"❌ Đã xảy ra lỗi: {e}")
 
+CRYPTOPANIC_API_KEY = "b15cebb8a40c84eaae9ed4b2087338a3e1a71873"
+
 async def news(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Lấy tin tức từ CryptoPanic bằng Selenium (fix lỗi không tìm thấy Chrome)"""
+    """Lấy tin tức từ CryptoPanic và hiển thị trong Telegram."""
     try:
-        # Xác định đường dẫn của Google Chrome
-        chrome_path = shutil.which("google-chrome")  # Tìm Chrome trong hệ thống
-        if not chrome_path:
-            await update.message.reply_text("❌ Không tìm thấy Google Chrome! Hãy cài đặt Chrome trước.")
+        url = f"https://cryptopanic.com/api/v1/posts/?auth_token={CRYPTOPANIC_API_KEY}&filter=trending"
+        response = requests.get(url)
+        data = response.json()
+
+        if "results" not in data:
+            await update.message.reply_text("❌ Không thể lấy tin tức. Vui lòng thử lại sau!")
             return
 
-        # Cấu hình Chrome headless (chạy ẩn)
-        chrome_options = Options()
-        chrome_options.add_argument("--headless")
-        chrome_options.add_argument("--disable-gpu")
-        chrome_options.add_argument("--no-sandbox")
-        chrome_options.add_argument("--disable-dev-shm-usage")
-        chrome_options.binary_location = chrome_path  # Cấu hình đường dẫn Chrome
+        news_list = data["results"][:5]  # Lấy 5 tin tức mới nhất
+        messages = []
+        buttons = []
 
-        # Khởi tạo WebDriver
-        service = Service(ChromeDriverManager().install())
-        driver = webdriver.Chrome(service=service, options=chrome_options)
-        
-        # Truy cập CryptoPanic
-        driver.get("https://cryptopanic.com/")
-        driver.implicitly_wait(5)
+        for news in news_list:
+            title = news.get("title", "Không có tiêu đề")
+            url = news.get("url", "#")
+            source = news.get("source", {}).get("title", "Không rõ nguồn")
+            time_posted = news.get("created_at", "Không rõ thời gian")
 
-        # Lấy tin tức
-        articles = driver.find_elements(By.CSS_SELECTOR, "article.news-item")[:5]
-        if not articles:
-            await update.message.reply_text("❌ Không tìm thấy tin tức. Có thể CryptoPanic đã thay đổi giao diện!")
-            driver.quit()
-            return
+            messages.append(f"📰 *{title}*\n📅 {time_posted} | 🔗 [{source}]({url})\n")
 
-        message = "📢 *Trending⬆️ News in Crypto 🔥*\n\n"
-        for article in articles:
-            try:
-                title_tag = article.find_element(By.CSS_SELECTOR, "a.news-title")
-                title = title_tag.text.strip()
-                url = title_tag.get_attribute("href")
+            # Tạo nút bấm cho từng bài báo
+            buttons.append([InlineKeyboardButton(title[:40] + "...", url=url)])
 
-                source_tag = article.find_element(By.CSS_SELECTOR, "a.news-source")
-                source = source_tag.text.strip() if source_tag else "Unknown Source"
+        message_text = "🔥 *Trending Crypto News:*\n\n" + "\n".join(messages)
 
-                time_tag = article.find_element(By.CSS_SELECTOR, "time")
-                time_ago = time_tag.text.strip() if time_tag else "Unknown Time"
-
-                message += f"📰 *{title}*\n"
-                message += f"🔗 [{source}]({url}) - 🕒 {time_ago}\n\n"
-            except:
-                continue
-
-        driver.quit()
-        await update.message.reply_text(message, parse_mode="Markdown", disable_web_page_preview=True)
+        await update.message.reply_text(
+            message_text, parse_mode="Markdown", disable_web_page_preview=True,
+            reply_markup=InlineKeyboardMarkup(buttons)
+        )
 
     except Exception as e:
-        await update.message.reply_text(f"❌ Lỗi khi lấy tin tức: {e}")
+        await update.message.reply_text(f"❌ Đã xảy ra lỗi: {e}")
+
 
 async def set_webhook(application: Application):
     """Thiết lập Webhook."""
