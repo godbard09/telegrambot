@@ -80,20 +80,16 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
         quote_currency = symbol.split('/')[1]
         ticker = exchange.fetch_ticker(symbol)
-        current_price = ticker.get('last', 0)
-        percentage_change = ticker.get('percentage', 0)
+        current_price = ticker['last']
+        percentage_change = ticker['percentage']
         volume_24h = ticker.get('quoteVolume', 0)
-        timestamp = ticker.get('timestamp')
-        
-        if timestamp:
-            timestamp = (
-                pd.to_datetime(timestamp, unit='ms')
-                .tz_localize('UTC')
-                .tz_convert(vietnam_tz)
-                .strftime('%Y-%m-%d %H:%M:%S')
-            )
-        else:
-            timestamp = "Không có dữ liệu"
+
+        timestamp = (
+            pd.to_datetime(ticker['timestamp'], unit='ms')
+            .tz_localize('UTC')
+            .tz_convert(vietnam_tz)
+            .strftime('%Y-%m-%d %H:%M:%S')
+        )
 
         timeframe = '2h'
         limit = 500
