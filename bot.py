@@ -1039,14 +1039,13 @@ async def fetch_news(category="trending"):
         return None
 
 
-async def send_news(update: Update, context: ContextTypes.DEFAULT_TYPE, category="trending"):
-    """Gửi danh sách tin tức theo danh mục."""
+async def send_news(update: Update, context: ContextTypes.DEFAULT_TYPE, category="trending", edit_message=None):
+    """Gửi hoặc cập nhật tin tức theo danh mục."""
     try:
         news_list = await fetch_news(category)
 
         if not news_list:
-            await update.message.reply_text("❌ Không thể lấy tin tức. Vui lòng thử lại sau!")
-            return
+            return "❌ Không thể lấy tin tức. Vui lòng thử lại sau!"
 
         messages = []
         buttons = []
@@ -1059,34 +1058,39 @@ async def send_news(update: Update, context: ContextTypes.DEFAULT_TYPE, category
 
             messages.append(f"🔹 *{title}*\n🕒 {time_posted} | 🌍 [{source}]({url})\n")
 
-            # Tạo nút bấm cho từng bài báo
+            # Nút mở bài viết
             buttons.append([InlineKeyboardButton(title[:40] + "...", url=url)])
 
         message_text = f"📢 *Trending 🔼 News in Crypto 🔥*\n\n" + "\n".join(messages)
 
-        # Tạo nút danh mục tin tức
+        # Nút chọn danh mục tin tức
         category_buttons = [
             [InlineKeyboardButton("Trending 🔼", callback_data="news_trending"),
              InlineKeyboardButton("Hot 🔥", callback_data="news_hot"),
              InlineKeyboardButton("Recent 🕒", callback_data="news_recent")]
         ]
 
-        await update.message.reply_text(
-            message_text, parse_mode="Markdown", disable_web_page_preview=True,
-            reply_markup=InlineKeyboardMarkup(buttons + category_buttons)  # Thêm nút dưới danh sách tin
-        )
+        if edit_message:
+            await edit_message.edit_text(
+                message_text, parse_mode="Markdown", disable_web_page_preview=True,
+                reply_markup=InlineKeyboardMarkup(buttons + category_buttons)
+            )
+        else:
+            return message_text, InlineKeyboardMarkup(buttons + category_buttons)
 
     except Exception as e:
-        await update.message.reply_text(f"❌ Đã xảy ra lỗi: {e}")
+        return f"❌ Đã xảy ra lỗi: {e}", None
 
 
 async def news(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Xử lý lệnh /news để gửi tin trending."""
-    await send_news(update, context, category="trending")
+    """Gửi tin tức lần đầu (lệnh /news)."""
+    message_text, reply_markup = await send_news(update, context, category="trending")
+    if reply_markup:
+        await update.message.reply_text(message_text, parse_mode="Markdown", disable_web_page_preview=True, reply_markup=reply_markup)
 
 
 async def news_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Xử lý khi người dùng bấm vào nút Trending, Hot, Recent."""
+    """Cập nhật tin tức khi bấm vào Trending 🔼 | Hot 🔥 | Recent 🕒."""
     query = update.callback_query
     await query.answer()
 
@@ -1097,7 +1101,7 @@ async def news_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     }
 
     if query.data in category_map:
-        await send_news(query, context, category=category_map[query.data])
+        await send_news(update, context, category=category_map[query.data], edit_message=query.message)
 
 
 async def set_webhook(application: Application):
