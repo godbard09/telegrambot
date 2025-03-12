@@ -209,197 +209,127 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
 
 async def chart(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Tạo và gửi biểu đồ kỹ thuật."""
+    """Tạo và gửi biểu đồ kỹ thuật 1H và 1D."""
     try:
         symbol = context.args[0] if context.args else context.chat_data.get("symbol")
         if not symbol:
             await update.message.reply_text("Vui lòng cung cấp mã giao dịch. Ví dụ: /chart BTC/USDT")
             return
 
-        timeframe = '1h'
-        limit = 8760
+        timeframes = {'1H': '1h', '1D': '1d'}
+        limits = {'1H': 8760, '1D': 365}
 
         markets = exchange.load_markets()
         if symbol not in markets:
             await update.message.reply_text(f"Mã giao dịch không hợp lệ: {symbol}. Vui lòng kiểm tra lại.")
             return
 
-        ohlcv = exchange.fetch_ohlcv(symbol, timeframe, limit=limit)
-        df = pd.DataFrame(ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
-        # Chuyển đổi timestamp sang giờ Việt Nam
-        df['timestamp'] = (
-            pd.to_datetime(df['timestamp'], unit='ms')
-            .dt.tz_localize('UTC')
-            .dt.tz_convert(vietnam_tz)
-        )
+        temp_files = []
+        
+        for label, timeframe in timeframes.items():
+            limit = limits[label]
+            ohlcv = exchange.fetch_ohlcv(symbol, timeframe, limit=limit)
+            df = pd.DataFrame(ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
+            df['timestamp'] = (
+                pd.to_datetime(df['timestamp'], unit='ms')
+                .dt.tz_localize('UTC')
+                .dt.tz_convert(vietnam_tz)
+            )
 
-        # Tính toán các chỉ báo kỹ thuật
-        df['MA50'] = df['close'].rolling(window=50).mean()
-        df['MA100'] = df['close'].rolling(window=100).mean()
+            # Tính toán các chỉ báo kỹ thuật
+            df['MA50'] = df['close'].rolling(window=50).mean()
+            df['MA100'] = df['close'].rolling(window=100).mean()
+            df['BB_Middle'] = df['close'].rolling(window=20).mean()
+            df['BB_Upper'] = df['BB_Middle'] + 2 * df['close'].rolling(window=20).std()
+            df['BB_Lower'] = df['BB_Middle'] - 2 * df['close'].rolling(window=20).std()
+            df['EMA12'] = df['close'].ewm(span=12).mean()
+            df['EMA26'] = df['close'].ewm(span=26).mean()
+            df['MACD'] = df['EMA12'] - df['EMA26']
+            df['Signal'] = df['MACD'].ewm(span=9).mean()
+            df['MACD_Hist'] = df['MACD'] - df['Signal']
 
-        # Bollinger Bands
-        df['BB_Middle'] = df['close'].rolling(window=20).mean()
-        df['BB_Upper'] = df['BB_Middle'] + 2 * df['close'].rolling(window=20).std()
-        df['BB_Lower'] = df['BB_Middle'] - 2 * df['close'].rolling(window=20).std()
+            delta = df['close'].diff()
+            gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
+            loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
+            rs = gain / loss
+            df['RSI'] = 100 - (100 / (1 + rs))
 
-        # MACD
-        df['EMA12'] = df['close'].ewm(span=12).mean()
-        df['EMA26'] = df['close'].ewm(span=26).mean()
-        df['MACD'] = df['EMA12'] - df['EMA26']
-        df['Signal'] = df['MACD'].ewm(span=9).mean()
-        df['MACD_Hist'] = df['MACD'] - df['Signal']
+            # Biểu đồ Candlestick và MACD
+            fig = make_subplots(
+                rows=4,
+                cols=1,
+                shared_xaxes=True,
+                vertical_spacing=0.03,
+                row_heights=[0.5, 0.2, 0.2, 0.1],
+                specs=[[{"secondary_y": True}], [{}], [{}], [{}]]
+            )
 
-        # RSI
-        delta = df['close'].diff()
-        gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
-        loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
-        rs = gain / loss
-        df['RSI'] = 100 - (100 / (1 + rs))
+            # Candlestick + Bollinger Bands
+            fig.add_trace(go.Candlestick(
+                x=df['timestamp'],
+                open=df['open'],
+                high=df['high'],
+                low=df['low'],
+                close=df['close'],
+                name="Candlestick"
+            ), row=1, col=1, secondary_y=False)
 
-        # Biểu đồ Candlestick và MACD được đặt riêng biệt
-        fig = make_subplots(
-            rows=4,  # Tăng số lượng hàng lên 4 để tách MACD khỏi biểu đồ giá
-            cols=1,
-            shared_xaxes=True,
-            vertical_spacing=0.03,
-            row_heights=[0.5, 0.2, 0.2, 0.1],  # Cập nhật chiều cao từng hàng
-            specs=[[{"secondary_y": True}], [{}], [{}], [{}]]
-        )
+            fig.add_trace(go.Scatter(x=df['timestamp'], y=df['BB_Upper'], mode='lines',
+                                     line=dict(color='red', width=1), name='BB Upper'), row=1, col=1)
+            fig.add_trace(go.Scatter(x=df['timestamp'], y=df['BB_Middle'], mode='lines',
+                                     line=dict(color='blue', width=1), name='BB Middle'), row=1, col=1)
+            fig.add_trace(go.Scatter(x=df['timestamp'], y=df['BB_Lower'], mode='lines',
+                                     line=dict(color='green', width=1), name='BB Lower'), row=1, col=1)
 
-        # Candlestick và Bollinger Bands
-        fig.add_trace(go.Candlestick(
-            x=df['timestamp'],
-            open=df['open'],
-            high=df['high'],
-            low=df['low'],
-            close=df['close'],
-            name="Candlestick"
-        ), row=1, col=1, secondary_y=False)
+            fig.add_trace(go.Scatter(x=df['timestamp'], y=df['MA50'], mode='lines',
+                                     line=dict(color='orange', width=1.5), name='MA50'), row=1, col=1)
+            fig.add_trace(go.Scatter(x=df['timestamp'], y=df['MA100'], mode='lines',
+                                     line=dict(color='purple', width=1.5), name='MA100'), row=1, col=1)
 
-        fig.add_trace(go.Scatter(
-            x=df['timestamp'],
-            y=df['BB_Upper'],
-            mode='lines',
-            line=dict(color='red', width=1),
-            name='BB Upper'
-        ), row=1, col=1, secondary_y=False)
+            # Khối lượng giao dịch
+            volume_colors = ['green' if row['close'] > row['open'] else 'red' for _, row in df.iterrows()]
+            fig.add_trace(go.Bar(x=df['timestamp'], y=df['volume'], name='Volume', marker_color=volume_colors),
+                          row=1, col=1, secondary_y=True)
 
-        fig.add_trace(go.Scatter(
-            x=df['timestamp'],
-            y=df['BB_Middle'],
-            mode='lines',
-            line=dict(color='blue', width=1),
-            name='BB Middle'
-        ), row=1, col=1, secondary_y=False)
+            # MACD
+            fig.add_trace(go.Bar(x=df['timestamp'], y=df['MACD_Hist'], name='MACD Histogram'), row=2, col=1)
+            fig.add_trace(go.Scatter(x=df['timestamp'], y=df['MACD'], mode='lines',
+                                     line=dict(color='green', width=1), name='MACD'), row=2, col=1)
+            fig.add_trace(go.Scatter(x=df['timestamp'], y=df['Signal'], mode='lines',
+                                     line=dict(color='red', width=1), name='Signal'), row=2, col=1)
 
-        fig.add_trace(go.Scatter(
-            x=df['timestamp'],
-            y=df['BB_Lower'],
-            mode='lines',
-            line=dict(color='green', width=1),
-            name='BB Lower'
-        ), row=1, col=1, secondary_y=False)
+            # RSI
+            fig.add_trace(go.Scatter(x=df['timestamp'], y=df['RSI'], mode='lines',
+                                     line=dict(color='purple', width=1), name='RSI'), row=3, col=1)
+            fig.add_trace(go.Scatter(x=df['timestamp'], y=[70] * len(df), mode='lines',
+                                     line=dict(color='red', dash='dash'), name='Overbought (70)'), row=3, col=1)
+            fig.add_trace(go.Scatter(x=df['timestamp'], y=[30] * len(df), mode='lines',
+                                     line=dict(color='blue', dash='dash'), name='Oversold (30)'), row=3, col=1)
 
-        # Thêm các đường MA50 và MA100
-        fig.add_trace(go.Scatter(
-            x=df['timestamp'],
-            y=df['MA50'],
-            mode='lines',
-            line=dict(color='orange', width=1.5),
-            name='MA50'
-        ), row=1, col=1, secondary_y=False)
+            # Layout
+            fig.update_layout(
+                title=f"BIỂU ĐỒ PHÂN TÍCH KỸ THUẬT ({label}) CỦA {symbol}",
+                template="plotly_dark",
+                height=1200,
+                xaxis_rangeslider_visible=False
+            )
 
-        fig.add_trace(go.Scatter(
-            x=df['timestamp'],
-            y=df['MA100'],
-            mode='lines',
-            line=dict(color='purple', width=1.5),
-            name='MA100'
-        ), row=1, col=1, secondary_y=False)
-
-        # Biểu đồ khối lượng bên trục y2, cùng màu với giá
-        volume_colors = [
-            'green' if row['close'] > row['open'] else 'red'
-            for _, row in df.iterrows()
-        ]
-        fig.add_trace(go.Bar(
-            x=df['timestamp'],
-            y=df['volume'],
-            name='Volume',
-            marker_color=volume_colors
-        ), row=1, col=1, secondary_y=True)
-
-        # Biểu đồ MACD (được chuyển sang hàng 2)
-        fig.add_trace(go.Bar(
-            x=df['timestamp'],
-            y=df['MACD_Hist'],
-            name='MACD Histogram'
-        ), row=2, col=1)
-
-        fig.add_trace(go.Scatter(
-            x=df['timestamp'],
-            y=df['MACD'],
-            mode='lines',
-            line=dict(color='green', width=1),
-            name='MACD'
-        ), row=2, col=1)
-
-        fig.add_trace(go.Scatter(
-            x=df['timestamp'],
-            y=df['Signal'],
-            mode='lines',
-            line=dict(color='red', width=1),
-            name='Signal'
-        ), row=2, col=1)
-
-        # Biểu đồ RSI (hàng 3)
-        fig.add_trace(go.Scatter(
-            x=df['timestamp'],
-            y=df['RSI'],
-            mode='lines',
-            line=dict(color='purple', width=1),
-            name='RSI'
-        ), row=3, col=1)
-
-        # Đường giới hạn RSI
-        fig.add_trace(go.Scatter(
-            x=df['timestamp'],
-            y=[70] * len(df),
-            mode='lines',
-            line=dict(color='red', dash='dash'),
-            name='Overbought (70)'
-        ), row=3, col=1)
-
-        fig.add_trace(go.Scatter(
-            x=df['timestamp'],
-            y=[30] * len(df),
-            mode='lines',
-            line=dict(color='blue', dash='dash'),
-            name='Oversold (30)'
-        ), row=3, col=1)
-
-        # Layout
-        fig.update_layout(
-            title=f"BIỂU ĐỒ PHÂN TÍCH KỸ THUẬT (1H) CỦA {symbol}",
-            template="plotly_dark",
-            height=1200,  # Tăng chiều cao biểu đồ tổng thể
-            xaxis_rangeslider_visible=False
-        )
-
-        # Lưu biểu đồ thành HTML
-        temp_file = f"{symbol.replace('/', '_')}_chart.html"
-        fig.write_html(temp_file)
+            # Lưu HTML
+            temp_file = f"{symbol.replace('/', '_')}_chart_{label}.html"
+            fig.write_html(temp_file)
+            temp_files.append(temp_file)
 
         # Gửi file HTML qua Telegram
-        if update.callback_query:
-            with open(temp_file, 'rb') as html_file:
-                await update.callback_query.message.reply_document(document=html_file, filename=temp_file)
-        else:
-            with open(temp_file, 'rb') as html_file:
-                await update.message.reply_document(document=html_file, filename=temp_file)
+        for temp_file in temp_files:
+            if update.callback_query:
+                with open(temp_file, 'rb') as html_file:
+                    await update.callback_query.message.reply_document(document=html_file, filename=temp_file)
+            else:
+                with open(temp_file, 'rb') as html_file:
+                    await update.message.reply_document(document=html_file, filename=temp_file)
 
-        # Xóa file tạm
-        os.remove(temp_file)
+            os.remove(temp_file)
+
     except Exception as e:
         if update.callback_query:
             await update.callback_query.message.reply_text(f"Đã xảy ra lỗi: {e}")
