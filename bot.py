@@ -1045,7 +1045,7 @@ async def send_news(update: Update, context: ContextTypes.DEFAULT_TYPE, category
         news_list = await fetch_news(category)
 
         if not news_list:
-            return "❌ Không thể lấy tin tức. Vui lòng thử lại sau!"
+            return
 
         messages = []
         buttons = []
@@ -1058,7 +1058,6 @@ async def send_news(update: Update, context: ContextTypes.DEFAULT_TYPE, category
 
             messages.append(f"📰 *{title}*\n🕒 {time_posted} | 🌍 [{source}]({url})\n")
 
-        # Tiêu đề theo danh mục
         category_titles = {
             "trending": "Trending 🔼 News in Crypto 🔥",
             "hot": "Hot 🔥 News in Crypto 🔥",
@@ -1067,15 +1066,15 @@ async def send_news(update: Update, context: ContextTypes.DEFAULT_TYPE, category
 
         message_text = f"📢 *{category_titles.get(category, 'Crypto News')}*\n\n" + "\n".join(messages)
 
-        # Nút chọn danh mục tin tức
         category_buttons = [
             [InlineKeyboardButton("Trending 🔼", callback_data="news_trending"),
              InlineKeyboardButton("Hot 🔥", callback_data="news_hot"),
              InlineKeyboardButton("Recent 🕒", callback_data="news_recent")]
         ]
 
+        # Xử lý chỉnh sửa hoặc gửi tin nhắn mới
         if edit_message:
-            await update.edit_message_text(
+            await update.callback_query.message.edit_text(
                 message_text, parse_mode="Markdown", disable_web_page_preview=True,
                 reply_markup=InlineKeyboardMarkup(category_buttons)
             )
@@ -1086,12 +1085,13 @@ async def send_news(update: Update, context: ContextTypes.DEFAULT_TYPE, category
             )
 
     except Exception as e:
-        return f"❌ Đã xảy ra lỗi: {e}"
+        print(f"❌ Lỗi khi gửi tin tức: {e}")
 
 
 async def news(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Xử lý lệnh /news."""
-    await send_news(update, context, category="trending")
+    if update.message:
+        await send_news(update, context, category="trending", edit_message=False)
 
 
 async def news_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1106,7 +1106,7 @@ async def news_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     }
 
     if query.data in category_map:
-        await send_news(query, context, category=category_map[query.data], edit_message=query.message)
+        await send_news(update, context, category=category_map[query.data], edit_message=True)
 
 
 async def set_webhook(application: Application):
