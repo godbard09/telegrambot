@@ -1039,7 +1039,27 @@ async def fetch_news(category="trending"):
         return None
 
 
-async def send_news_category(update: Update, category="trending"):
+async def format_time(iso_time):
+    """Chuyển đổi thời gian từ ISO 8601 sang YYYY/MM/DD (XX phút trước)."""
+    try:
+        utc_time = datetime.strptime(iso_time, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+        vietnam_tz = pytz.timezone("Asia/Ho_Chi_Minh")
+        local_time = utc_time.astimezone(vietnam_tz)
+
+        # Tính thời gian chênh lệch
+        now = datetime.now(vietnam_tz)
+        time_diff = int((now - local_time).total_seconds() // 60)  # Đổi sang phút
+
+        time_str = local_time.strftime("%Y/%m/%d")
+        time_ago = f"({time_diff} phút trước)" if time_diff < 60 else f"({time_diff // 60} giờ trước)"
+
+        return f"{time_str} {time_ago}"
+
+    except Exception as e:
+        return "Không rõ thời gian"
+
+
+async def send_news_category(update: Update, category="hot"):
     """Lấy tin tức theo danh mục và trả về nội dung."""
     try:
         news_list = await fetch_news(category)
@@ -1051,12 +1071,11 @@ async def send_news_category(update: Update, category="trending"):
             title = news.get("title", "Không có tiêu đề")
             url = news.get("url", "#")
             source = news.get("source", {}).get("title", "Không rõ nguồn")
-            time_posted = news.get("created_at", "Không rõ thời gian")
+            time_posted = await format_time(news.get("created_at", "Không rõ thời gian"))
 
             messages.append(f"📰 *{title}*\n🕒 {time_posted} | 🌍 [{source}]({url})\n")
 
         category_titles = {
-            "trending": "📢 *Trending 🔼 News in Crypto 🔥*",
             "hot": "🔥 *Hot News in Crypto 🔥*",
             "latest": "🕒 *Recent News in Crypto 🔥*"
         }
@@ -1068,15 +1087,12 @@ async def send_news_category(update: Update, category="trending"):
 
 
 async def news(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Gửi cả 3 danh mục Trending 🔼, Hot 🔥, Recent 🕒 khi gõ /news."""
-    trending_text = await send_news_category(update, category="trending")
+    """Gửi tin Hot 🔥 & Recent 🕒 khi gõ /news."""
     hot_text = await send_news_category(update, category="hot")
     recent_text = await send_news_category(update, category="latest")
 
-    await update.message.reply_text(trending_text, parse_mode="Markdown", disable_web_page_preview=True)
     await update.message.reply_text(hot_text, parse_mode="Markdown", disable_web_page_preview=True)
     await update.message.reply_text(recent_text, parse_mode="Markdown", disable_web_page_preview=True)
-
 
 
 async def set_webhook(application: Application):
