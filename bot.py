@@ -891,7 +891,7 @@ async def list10(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         params = {
             "vs_currency": "usd",
             "order": "market_cap_desc",
-            "per_page": 15,  # Lấy dư để lọc coin hợp lệ
+            "per_page": 15,  
             "page": 1,
             "sparkline": False
         }
@@ -944,24 +944,32 @@ async def list10(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
                 last_buy = None
                 last_signal = None
+                buy_candidates = []
 
+                # Tìm tất cả các tín hiệu mua trước
+                for _, row in df.iterrows():
+                    if row['close'] > row['MA50'] and row['MACD'] > row['Signal'] and row['RSI'] < 30:
+                        buy_candidates.append({"price": row['close'], "timestamp": row['timestamp']})
+                    elif row['close'] <= row['BB_Lower']:
+                        buy_candidates.append({"price": row['close'], "timestamp": row['timestamp']})
+
+                # Tìm tín hiệu bán gần nhất
                 for _, row in df[::-1].iterrows():
                     timestamp_str = row['timestamp'].strftime('%Y-%m-%d %H:%M:%S')
 
-                    if row['close'] > row['MA50'] and row['MACD'] > row['Signal'] and row['RSI'] < 30:
-                        last_buy = {"price": row['close'], "timestamp": timestamp_str}
-                        last_signal = {"type": "MUA", "price": row['close'], "timestamp": timestamp_str}
-                        break
-                    elif row['close'] <= row['BB_Lower']:
-                        last_buy = {"price": row['close'], "timestamp": timestamp_str}
-                        last_signal = {"type": "MUA", "price": row['close'], "timestamp": timestamp_str}
-                        break
-                    elif row['close'] < row['MA50'] and row['MACD'] < row['Signal'] and row['RSI'] > 70:
+                    if row['close'] < row['MA50'] and row['MACD'] < row['Signal'] and row['RSI'] > 70:
                         last_signal = {"type": "BÁN", "price": row['close'], "timestamp": timestamp_str}
                         break
                     elif row['close'] >= row['BB_Upper']:
                         last_signal = {"type": "BÁN", "price": row['close'], "timestamp": timestamp_str}
                         break
+
+                # Tìm giá mua gần nhất trước khi bán
+                if last_signal and buy_candidates:
+                    last_buy = max(
+                        (b for b in buy_candidates if b["timestamp"] < pd.Timestamp(last_signal["timestamp"])),
+                        key=lambda x: x["timestamp"], default=None
+                    )
 
                 current_price = df.iloc[-1]['close']
                 profit_loss = "🟡 0.00%"
@@ -977,24 +985,10 @@ async def list10(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                     else:
                         position_status = last_signal["type"]
 
-                    if last_signal["type"] == "MUA":
-                        profit_percent = ((current_price - last_signal["price"]) / last_signal["price"]) * 100
-                        if profit_percent > 0:
-                            profit_loss = f"🟢 {profit_percent:.2f}%"
-                        elif profit_percent < 0:
-                            profit_loss = f"🔴 {profit_percent:.2f}%"
-                        else:
-                            profit_loss = "🟡 0.00%"
-
-                    elif last_signal["type"] == "BÁN":
+                    if last_signal["type"] == "BÁN":
                         if last_buy:
                             profit_percent = ((last_signal["price"] - last_buy["price"]) / last_buy["price"]) * 100
-                            if profit_percent > 0:
-                                profit_loss = f"🟢 {profit_percent:.2f}%"
-                            elif profit_percent < 0:
-                                profit_loss = f"🔴 {profit_percent:.2f}%"
-                            else:
-                                profit_loss = "🟡 0.00%"
+                            profit_loss = f"🟢 {profit_percent:.2f}%" if profit_percent > 0 else f"🔴 {profit_percent:.2f}%"
                         else:
                             profit_loss = "⚠️ Không có tín hiệu mua trước đó"
 
@@ -1020,6 +1014,7 @@ async def list10(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     except Exception as e:
         await update.message.reply_text(f"❌ Đã xảy ra lỗi: {e}")
+
 
 
 CRYPTOPANIC_API_KEY = "b15cebb8a40c84eaae9ed4b2087338a3e1a71873"
