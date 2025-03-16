@@ -926,7 +926,9 @@ async def list10(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             try:
                 ohlcv = exchange.fetch_ohlcv(symbol, timeframe, limit=limit)
                 df = pd.DataFrame(ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
-                df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms', utc=True).dt.tz_convert(vietnam_tz)
+                
+                # ✅ Chuyển đổi timestamp về UTC (tz-aware)
+                df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms', utc=True)
 
                 df['MA50'] = df['close'].rolling(window=50).mean()
                 df['EMA12'] = df['close'].ewm(span=12).mean()
@@ -946,28 +948,28 @@ async def list10(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 last_signal = None
                 buy_candidates = []
 
-                # Tìm tất cả các tín hiệu mua trước
+                # ✅ Lưu tất cả tín hiệu mua trước
                 for _, row in df.iterrows():
                     if row['close'] > row['MA50'] and row['MACD'] > row['Signal'] and row['RSI'] < 30:
                         buy_candidates.append({"price": row['close'], "timestamp": row['timestamp']})
                     elif row['close'] <= row['BB_Lower']:
                         buy_candidates.append({"price": row['close'], "timestamp": row['timestamp']})
 
-                # Tìm tín hiệu bán gần nhất
+                # ✅ Tìm tín hiệu bán gần nhất
                 for _, row in df[::-1].iterrows():
-                    timestamp_str = row['timestamp'].strftime('%Y-%m-%d %H:%M:%S')
+                    timestamp_utc = row['timestamp'].strftime('%Y-%m-%d %H:%M:%S')
 
                     if row['close'] < row['MA50'] and row['MACD'] < row['Signal'] and row['RSI'] > 70:
-                        last_signal = {"type": "BÁN", "price": row['close'], "timestamp": timestamp_str}
+                        last_signal = {"type": "BÁN", "price": row['close'], "timestamp": timestamp_utc}
                         break
                     elif row['close'] >= row['BB_Upper']:
-                        last_signal = {"type": "BÁN", "price": row['close'], "timestamp": timestamp_str}
+                        last_signal = {"type": "BÁN", "price": row['close'], "timestamp": timestamp_utc}
                         break
 
-                # Tìm giá mua gần nhất trước khi bán
+                # ✅ Tìm giá mua gần nhất trước khi có tín hiệu bán
                 if last_signal and buy_candidates:
                     last_buy = max(
-                        (b for b in buy_candidates if b["timestamp"] < pd.Timestamp(last_signal["timestamp"])),
+                        (b for b in buy_candidates if b["timestamp"] < pd.Timestamp(last_signal["timestamp"], tz="UTC")),
                         key=lambda x: x["timestamp"], default=None
                     )
 
@@ -976,8 +978,8 @@ async def list10(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 position_status = "THEO DÕI"
 
                 if last_signal:
-                    last_signal_time = pd.Timestamp(last_signal["timestamp"]).tz_localize(vietnam_tz)
-                    current_time = pd.Timestamp.now(tz=vietnam_tz)
+                    last_signal_time = pd.Timestamp(last_signal["timestamp"], tz="UTC")
+                    current_time = pd.Timestamp.now(tz=pytz.UTC)
 
                     signal_age = (current_time - last_signal_time).total_seconds() / 3600
                     if signal_age > 2:
@@ -1014,7 +1016,6 @@ async def list10(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     except Exception as e:
         await update.message.reply_text(f"❌ Đã xảy ra lỗi: {e}")
-
 
 
 CRYPTOPANIC_API_KEY = "b15cebb8a40c84eaae9ed4b2087338a3e1a71873"
