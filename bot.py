@@ -891,7 +891,7 @@ async def list10(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         params = {
             "vs_currency": "usd",
             "order": "market_cap_desc",
-            "per_page": 15,  # Tăng số lượng để lấy được 13 coin hợp lệ
+            "per_page": 15,  # Lấy dư để lọc coin hợp lệ
             "page": 1,
             "sparkline": False
         }
@@ -910,7 +910,7 @@ async def list10(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         for coin in data:
             symbol = coin["symbol"].upper()
             pair = f"{symbol}/USDT"
-            if symbol not in ["USDT", "STETH", "USDC"] and pair in exchange_markets:  # Loại bỏ USDC
+            if symbol not in ["USDT", "STETH", "USDC"] and pair in exchange_markets:  
                 top_10_coins.append(pair)
                 coin_ranks[pair] = f"#{actual_rank}"
             actual_rank += 1
@@ -919,7 +919,6 @@ async def list10(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
         timeframe = '2h'
         limit = 500
-
         vietnam_tz = pytz.timezone('Asia/Ho_Chi_Minh')
 
         messages = []
@@ -987,14 +986,17 @@ async def list10(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                         else:
                             profit_loss = "🟡 0.00%"
 
-                    elif last_signal["type"] == "BÁN" and last_buy:
-                        profit_percent = ((last_signal["price"] - last_buy["price"]) / last_buy["price"]) * 100
-                        if profit_percent > 0:
-                            profit_loss = f"🟢 {profit_percent:.2f}%"
-                        elif profit_percent < 0:
-                            profit_loss = f"🔴 {profit_percent:.2f}%"
+                    elif last_signal["type"] == "BÁN":
+                        if last_buy:
+                            profit_percent = ((last_signal["price"] - last_buy["price"]) / last_buy["price"]) * 100
+                            if profit_percent > 0:
+                                profit_loss = f"🟢 {profit_percent:.2f}%"
+                            elif profit_percent < 0:
+                                profit_loss = f"🔴 {profit_percent:.2f}%"
+                            else:
+                                profit_loss = "🟡 0.00%"
                         else:
-                            profit_loss = "🟡 0.00%"
+                            profit_loss = "⚠️ Không có tín hiệu mua trước đó"
 
                 if not last_signal:
                     signal_text = "⚠️ Không có tín hiệu rõ ràng"
@@ -1018,6 +1020,7 @@ async def list10(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     except Exception as e:
         await update.message.reply_text(f"❌ Đã xảy ra lỗi: {e}")
+
 
 CRYPTOPANIC_API_KEY = "b15cebb8a40c84eaae9ed4b2087338a3e1a71873"
 
