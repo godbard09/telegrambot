@@ -876,7 +876,7 @@ async def trending(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             trending_list.append(f"{index}. {link} | #{market_cap_rank}")
 
         # Tạo nội dung tin nhắn
-        message = "🔥 *Search Trends - Coingecko* 🔥\n\n" + "\n".join(trending_list)
+        message = "🔥 *Xu hướng tìm kiếm 3 giờ qua - Coingecko* 🔥\n\n" + "\n".join(trending_list)
 
         # Gửi tin nhắn với Markdown
         await update.message.reply_text(message, parse_mode="Markdown", disable_web_page_preview=True)
