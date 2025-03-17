@@ -30,8 +30,8 @@ signal_history = {}
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Gửi tin nhắn chào mừng và hướng dẫn."""
     await update.message.reply_text(
-        "👋 Chào mừng bạn! Tôi là bot hỗ trợ bạn theo dõi tín hiệu mua/bán và phân tích thị trường tiền mã hóa .\n"
-        "Dưới đây là các lệnh bạn có thể sử dụng:\n"
+        "👋 Chào mừng bạn! Tôi là bot hỗ trợ bạn theo dõi tín hiệu mua/bán và phân tích thị trường tiền mã hóa.\n\n"
+        "🛠️ Dưới đây là các lệnh bạn có thể sử dụng:\n"
         "Gõ /chart <mã giao dịch> để xem biểu đồ kỹ thuật 1h, 1d (ví dụ: /chart BTC/USDT).\n"
         "Gõ /top để xem top 10 cặp giao dịch tăng, giảm mạnh nhất 24 giờ qua.\n"
         "Gõ /signal <mã giao dịch> để xem lịch sử tín hiệu mua bán trong 7 ngày qua (ví dụ: /signal BTC/USDT).\n"
