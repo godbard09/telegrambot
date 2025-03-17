@@ -97,6 +97,8 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         else:
             timestamp = "Không có dữ liệu"
 
+        trend_icon = "📈" if percentage_change > 0 else "📉" if percentage_change < 0 else "🔁"
+
         timeframe = '2h'
         limit = 500
         ohlcv = exchange.fetch_ohlcv(symbol, timeframe, limit=limit)
@@ -128,11 +130,11 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
             last_row = df.iloc[-1]
             prev_row = df.iloc[-2]
             if last_row['close'] > last_row['MA50'] and last_row['close'] > last_row['MA100'] and last_row['MA50'] > prev_row['MA50']:
-                trend = "TĂNG"
+                trend = "📈 TĂNG"
             elif last_row['close'] < last_row['MA50'] and last_row['close'] < last_row['MA100'] and last_row['MA50'] < prev_row['MA50']:
-                trend = "GIẢM"
+                trend = "📉 GIẢM"
             else:
-                trend = "ĐI NGANG"
+                trend = "🔁 ĐI NGANG"
 
         signals = []
         for _, row in df.iterrows():
@@ -159,11 +161,11 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
                     f"{profit_loss:.2f}% 🟡"
                 )
                 position_info = (
-                    f"- Xu hướng: **{trend}**\n"
-                    f"- Vị thế hiện tại: **{position_status}**\n"
-                    f"- Ngày mua: {recent_signal['timestamp'].strftime('%Y-%m-%d %H:%M:%S')}\n"
-                    f"- Giá mua: {recent_signal['price']:.2f} {quote_currency}\n"
-                    f"- Lãi/Lỗ: {profit_color}"
+                    f"🏹 *Xu hướng:* {trend}\n"
+                    f"📊 *Vị thế:* {position_status}\n"
+                    f"🗓 *Ngày mua:* {recent_signal['timestamp'].strftime('%Y-%m-%d %H:%M:%S')}\n"
+                    f"💰 *Giá mua:* `{recent_signal['price']:.2f}` {quote_currency}\n"
+                    f"📈 *Lãi/Lỗ:* {profit_color}"
                 )
             elif recent_signal['type'] == "BÁN":
                 buy_signals = [s for s in signals if s['type'] == "MUA" and s['timestamp'] < recent_signal['timestamp']]
@@ -176,13 +178,13 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
                         f"{profit_loss:.2f}% 🟡"
                     )
                     position_info = (
-                        f"- Xu hướng: **{trend}**\n"
-                        f"- Vị thế hiện tại: **{position_status}**\n"
-                        f"- Ngày mua: {prior_buy['timestamp'].strftime('%Y-%m-%d %H:%M:%S')}\n"
-                        f"- Giá mua: {prior_buy['price']:.2f} {quote_currency}\n"
-                        f"- Ngày bán: {recent_signal['timestamp'].strftime('%Y-%m-%d %H:%M:%S')}\n"
-                        f"- Giá bán: {recent_signal['price']:.2f} {quote_currency}\n"
-                        f"- Lãi/Lỗ: {profit_color}"
+                        f"🏹 *Xu hướng:* {trend}\n"
+                        f"📊 *Vị thế:* {position_status}\n"
+                        f"🛒 *Ngày mua:* {prior_buy['timestamp'].strftime('%Y-%m-%d %H:%M:%S')}\n"
+                        f"💰 *Giá mua:* `{prior_buy['price']:.2f}` {quote_currency}\n"
+                        f"🏷 *Ngày bán:* {recent_signal['timestamp'].strftime('%Y-%m-%d %H:%M:%S')}\n"
+                        f"💵 *Giá bán:* `{recent_signal['price']:.2f}` {quote_currency}\n"
+                        f"📈 *Lãi/Lỗ:* {profit_color}"
                     )
                 else:
                     position_info = (
@@ -195,12 +197,12 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
 
         message = escape_markdown(
-            f"Thông tin giá hiện tại cho {symbol}:\n"
-            f"- Giá hiện tại: {current_price:.2f} {quote_currency}\n"
-            f"- Biến động trong 24 giờ qua: {percentage_change:.2f}%\n"
-            f"- Khối lượng giao dịch trong 24 giờ qua: {volume_24h:.2f} {quote_currency}\n"
-            f"- Thời gian cập nhật: {timestamp}\n\n"
-            f"Thông tin vị thế:\n{position_info}",
+            f"- 📢 *Thông tin giá hiện tại cho {symbol}:*\n"
+            f"💵 *Giá hiện tại:* `{current_price:.2f}` {quote_currency}\n"
+            f"📊 *Biến động 24h:* `{percentage_change:.2f}%` {trend_icon}\n"
+            f"🔄 *Khối lượng 24h:* `{volume_24h:.2f}` {quote_currency}\n"
+            f"⏳ *Thời gian cập nhật:* {timestamp}\n\n"
+            f"- 📌 *Thông tin vị thế:*\n{position_info}",
             ignore=["*"]
         )
         await update.message.reply_text(message, parse_mode="MarkdownV2")
