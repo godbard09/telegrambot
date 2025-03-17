@@ -713,7 +713,7 @@ async def send_heatmap(chat, timeframe: str):
         ))
 
         fig.update_layout(
-            title=f"📊 Heatmap top 100 coins ({timeframe.upper()})",
+            title=f"📊 HEATMAP TOP 100 COIN ({timeframe.upper()})",
             template="plotly_dark"
         )
 
