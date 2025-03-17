@@ -162,7 +162,7 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
                 )
                 position_info = (
                     f"- 🏹 *Xu hướng:* {trend}\n"
-                    f"- 📊 *Vị thế:* {position_status}\n"
+                    f"- 📊 *Vị thế hiện tại:* {position_status}\n"
                     f"- 🗓 *Ngày mua:* {recent_signal['timestamp'].strftime('%Y-%m-%d %H:%M:%S')}\n"
                     f"- 💰 *Giá mua:* {recent_signal['price']:.2f} {quote_currency}\n"
                     f"- 📈 *Lãi/Lỗ:* {profit_color}"
@@ -179,7 +179,7 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
                     )
                     position_info = (
                         f"- 🏹 *Xu hướng:* {trend}\n"
-                        f"- 📊 *Vị thế:* {position_status}\n"
+                        f"- 📊 *Vị thế hiện tại:* {position_status}\n"
                         f"- 🛒 *Ngày mua:* {prior_buy['timestamp'].strftime('%Y-%m-%d %H:%M:%S')}\n"
                         f"- 💰 *Giá mua:* {prior_buy['price']:.2f} {quote_currency}\n"
                         f"- 🏷 *Ngày bán:* {recent_signal['timestamp'].strftime('%Y-%m-%d %H:%M:%S')}\n"
