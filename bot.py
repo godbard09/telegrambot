@@ -891,7 +891,7 @@ async def list10(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         params = {
             "vs_currency": "usd",
             "order": "market_cap_desc",
-            "per_page": 15,  # Tăng số lượng để lấy được 13 coin hợp lệ
+            "per_page": 15,
             "page": 1,
             "sparkline": False
         }
@@ -910,7 +910,7 @@ async def list10(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         for coin in data:
             symbol = coin["symbol"].upper()
             pair = f"{symbol}/USDT"
-            if symbol not in ["USDT", "STETH", "USDC"] and pair in exchange_markets:  # Loại bỏ USDC
+            if symbol not in ["USDT", "STETH", "USDC"] and pair in exchange_markets:
                 top_10_coins.append(pair)
                 coin_ranks[pair] = f"#{actual_rank}"
             actual_rank += 1
@@ -919,7 +919,6 @@ async def list10(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
         timeframe = '2h'
         limit = 500
-
         vietnam_tz = pytz.timezone('Asia/Ho_Chi_Minh')
 
         messages = []
@@ -948,7 +947,7 @@ async def list10(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
                 for _, row in df[::-1].iterrows():
                     timestamp_str = row['timestamp'].strftime('%Y-%m-%d %H:%M:%S')
-
+                    
                     if row['close'] > row['MA50'] and row['MACD'] > row['Signal'] and row['RSI'] < 30:
                         last_buy = {"price": row['close'], "timestamp": timestamp_str}
                         last_signal = {"type": "MUA", "price": row['close'], "timestamp": timestamp_str}
@@ -959,10 +958,12 @@ async def list10(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                         break
                     elif row['close'] < row['MA50'] and row['MACD'] < row['Signal'] and row['RSI'] > 70:
                         last_signal = {"type": "BÁN", "price": row['close'], "timestamp": timestamp_str}
-                        break
+                        if last_buy:
+                            break
                     elif row['close'] >= row['BB_Upper']:
                         last_signal = {"type": "BÁN", "price": row['close'], "timestamp": timestamp_str}
-                        break
+                        if last_buy:
+                            break
 
                 current_price = df.iloc[-1]['close']
                 profit_loss = "🟡 0.00%"
@@ -971,7 +972,7 @@ async def list10(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 if last_signal:
                     last_signal_time = pd.Timestamp(last_signal["timestamp"]).tz_localize(vietnam_tz)
                     current_time = pd.Timestamp.now(tz=vietnam_tz)
-
+                    
                     signal_age = (current_time - last_signal_time).total_seconds() / 3600
                     if signal_age > 2:
                         position_status = "THEO DÕI"
@@ -980,32 +981,23 @@ async def list10(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
                     if last_signal["type"] == "MUA":
                         profit_percent = ((current_price - last_signal["price"]) / last_signal["price"]) * 100
-                        if profit_percent > 0:
-                            profit_loss = f"🟢 {profit_percent:.2f}%"
-                        elif profit_percent < 0:
-                            profit_loss = f"🔴 {profit_percent:.2f}%"
-                        else:
-                            profit_loss = "🟡 0.00%"
-
                     elif last_signal["type"] == "BÁN" and last_buy:
                         profit_percent = ((last_signal["price"] - last_buy["price"]) / last_buy["price"]) * 100
-                        if profit_percent > 0:
-                            profit_loss = f"🟢 {profit_percent:.2f}%"
-                        elif profit_percent < 0:
-                            profit_loss = f"🔴 {profit_percent:.2f}%"
-                        else:
-                            profit_loss = "🟡 0.00%"
+                    else:
+                        profit_percent = 0.00
 
-                if not last_signal:
-                    signal_text = "⚠️ Không có tín hiệu rõ ràng"
-                else:
-                    signal_text = f"{'🟢 MUA' if last_signal['type'] == 'MUA' else '🔴 BÁN'} @ {last_signal['price']:.2f} USDT"
-                    signal_text += f"\n📅 *Thời điểm:* {last_signal['timestamp']}"
+                    if profit_percent > 0:
+                        profit_loss = f"🟢 {profit_percent:.2f}%"
+                    elif profit_percent < 0:
+                        profit_loss = f"🔴 {profit_percent:.2f}%"
+                    else:
+                        profit_loss = "🟡 0.00%"
 
                 messages.append(
                     f"📊 *{symbol} {coin_ranks[symbol]}*\n"
                     f"💰 *Giá hiện tại:* {current_price:.2f} USDT\n"
-                    f"⚡ *Tín hiệu gần nhất:* {signal_text}\n"
+                    f"⚡ *Tín hiệu gần nhất:* {'🟢 MUA' if last_signal['type'] == 'MUA' else '🔴 BÁN'} @ {last_signal['price']:.2f} USDT\n"
+                    f"📅 *Thời điểm:* {last_signal['timestamp']}\n"
                     f"📈 *Lãi/Lỗ:* {profit_loss}\n"
                     f"🎯 *Vị thế hiện tại:* {position_status}\n"
                 )
