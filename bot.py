@@ -32,18 +32,18 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text(
         "👋 Chào mừng bạn! Tôi là bot hỗ trợ bạn theo dõi tín hiệu mua/bán và phân tích thị trường tiền mã hóa.\n\n"
         "🛠️ Dưới đây là các lệnh bạn có thể sử dụng:\n"
-        "Gõ /chart <mã giao dịch> để xem biểu đồ kỹ thuật 1h, 1d (ví dụ: /chart BTC/USDT).\n"
-        "Gõ /top để xem top 10 cặp giao dịch tăng, giảm mạnh nhất 24 giờ qua.\n"
-        "Gõ /signal <mã giao dịch> để xem lịch sử tín hiệu mua bán trong 7 ngày qua (ví dụ: /signal BTC/USDT).\n"
-        "Gõ /smarttrade <mã giao dịch> để xem thông tin hiện tại và tín hiệu mua bán mới nhất (ví dụ: /smarttrade BTC/USDT).\n"
-        "Gõ /list để xem top 10 cặp giao dịch có tín hiệu mua bán gần đây.\n"
-        "Gõ /list10 để xem tín hiệu mua bán gần đây của 10 cặp giao dịch (/USDT) có vốn hóa lớn nhất thị trường.\n"
-        "Gõ /info để xem thông tin chi tiết về đồng coin (ví dụ: /info bitcoin).\n"
-        "Gõ /desc để xem mô tả về đồng coin (ví dụ: /desc bitcoin).\n"
-        "Gõ /heatmap để xem heatmap 1h, 1d, 1w của top 100 đồng coin có vốn hóa lớn nhất thị trường.\n"
-        "Gõ /sentiment để xem tâm lý thị trường hiện tại.\n"
-        "Gõ /trending để xem top 15 coin được tìm kiếm nhiều nhất trong 3 giờ qua trên CoinGecko.\n"
-        "Gõ /news để xem tin tức hot và gần đây nhất."
+        "- Gõ /chart <mã giao dịch> để xem biểu đồ kỹ thuật 1h, 1d (ví dụ: /chart BTC/USDT).\n"
+        "- Gõ /top để xem top 10 cặp giao dịch tăng, giảm mạnh nhất 24 giờ qua.\n"
+        "- Gõ /signal <mã giao dịch> để xem lịch sử tín hiệu mua bán trong 7 ngày qua (ví dụ: /signal BTC/USDT).\n"
+        "- Gõ /smarttrade <mã giao dịch> để xem thông tin hiện tại và tín hiệu mua bán mới nhất (ví dụ: /smarttrade BTC/USDT).\n"
+        "- Gõ /list để xem top 10 cặp giao dịch có tín hiệu mua bán gần đây.\n"
+        "- Gõ /list10 để xem tín hiệu mua bán gần đây của 10 cặp giao dịch có vốn hóa lớn nhất thị trường.\n"
+        "- Gõ /info <coin> để xem thông tin chi tiết về đồng coin (ví dụ: /info bitcoin).\n"
+        "- Gõ /desc <coin> để xem mô tả về đồng coin (ví dụ: /desc bitcoin).\n"
+        "- Gõ /heatmap để xem heatmap 1h, 1d, 1w của top 100 đồng coin có vốn hóa lớn nhất thị trường.\n"
+        "- Gõ /sentiment để xem tâm lý thị trường hiện tại.\n"
+        "- Gõ /trending để xem top 15 coin được tìm kiếm nhiều nhất trong 3 giờ qua trên CoinGecko.\n"
+        "- Gõ /news để xem tin tức hot và gần đây nhất."
     )
 
 
@@ -161,11 +161,11 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
                     f"{profit_loss:.2f}% 🟡"
                 )
                 position_info = (
-                    f"🏹 *Xu hướng:* {trend}\n"
-                    f"📊 *Vị thế:* {position_status}\n"
-                    f"🗓 *Ngày mua:* {recent_signal['timestamp'].strftime('%Y-%m-%d %H:%M:%S')}\n"
-                    f"💰 *Giá mua:* `{recent_signal['price']:.2f}` {quote_currency}\n"
-                    f"📈 *Lãi/Lỗ:* {profit_color}"
+                    f"- 🏹 *Xu hướng:* {trend}\n"
+                    f"- 📊 *Vị thế:* {position_status}\n"
+                    f"- 🗓 *Ngày mua:* {recent_signal['timestamp'].strftime('%Y-%m-%d %H:%M:%S')}\n"
+                    f"- 💰 *Giá mua:* {recent_signal['price']:.2f} {quote_currency}\n"
+                    f"- 📈 *Lãi/Lỗ:* {profit_color}"
                 )
             elif recent_signal['type'] == "BÁN":
                 buy_signals = [s for s in signals if s['type'] == "MUA" and s['timestamp'] < recent_signal['timestamp']]
@@ -178,13 +178,13 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
                         f"{profit_loss:.2f}% 🟡"
                     )
                     position_info = (
-                        f"🏹 *Xu hướng:* {trend}\n"
-                        f"📊 *Vị thế:* {position_status}\n"
-                        f"🛒 *Ngày mua:* {prior_buy['timestamp'].strftime('%Y-%m-%d %H:%M:%S')}\n"
-                        f"💰 *Giá mua:* `{prior_buy['price']:.2f}` {quote_currency}\n"
-                        f"🏷 *Ngày bán:* {recent_signal['timestamp'].strftime('%Y-%m-%d %H:%M:%S')}\n"
-                        f"💵 *Giá bán:* `{recent_signal['price']:.2f}` {quote_currency}\n"
-                        f"📈 *Lãi/Lỗ:* {profit_color}"
+                        f"- 🏹 *Xu hướng:* {trend}\n"
+                        f"- 📊 *Vị thế:* {position_status}\n"
+                        f"- 🛒 *Ngày mua:* {prior_buy['timestamp'].strftime('%Y-%m-%d %H:%M:%S')}\n"
+                        f"- 💰 *Giá mua:* {prior_buy['price']:.2f} {quote_currency}\n"
+                        f"- 🏷 *Ngày bán:* {recent_signal['timestamp'].strftime('%Y-%m-%d %H:%M:%S')}\n"
+                        f"- 💵 *Giá bán:* {recent_signal['price']:.2f} {quote_currency}\n"
+                        f"- 📈 *Lãi/Lỗ:* {profit_color}"
                     )
                 else:
                     position_info = (
@@ -197,12 +197,12 @@ async def current_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
 
         message = escape_markdown(
-            f"- 📢 *Thông tin giá hiện tại cho {symbol}:*\n"
-            f"💵 *Giá hiện tại:* `{current_price:.2f}` {quote_currency}\n"
-            f"📊 *Biến động 24h:* `{percentage_change:.2f}%` {trend_icon}\n"
-            f"🔄 *Khối lượng 24h:* `{volume_24h:.2f}` {quote_currency}\n"
-            f"⏳ *Thời gian cập nhật:* {timestamp}\n\n"
-            f"- 📌 *Thông tin vị thế:*\n{position_info}",
+            f"📢 *Thông tin giá hiện tại cho {symbol}:*\n"
+            f"- 💵 *Giá hiện tại:* {current_price:.2f} {quote_currency}\n"
+            f"- 📊 *Biến động 24h:* {percentage_change:.2f}% {trend_icon}\n"
+            f"- 🔄 *Khối lượng 24h:* {volume_24h:.2f} {quote_currency}\n"
+            f"- ⏳ *Thời gian cập nhật:* {timestamp}\n\n"
+            f"📌 *Thông tin vị thế:*\n{position_info}",
             ignore=["*"]
         )
         await update.message.reply_text(message, parse_mode="MarkdownV2")
