@@ -30,19 +30,20 @@ signal_history = {}
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Gửi tin nhắn chào mừng và hướng dẫn."""
     await update.message.reply_text(
-        "Chào mừng! Tôi là bot hỗ trợ cảnh báo tín hiệu mua/bán tiền mã hóa.\n"
+        "👋 Chào mừng bạn! Tôi là bot hỗ trợ bạn theo dõi tín hiệu mua/bán và phân tích thị trường tiền mã hóa .\n"
         "Dưới đây là các lệnh bạn có thể sử dụng:\n"
-        "Gõ /chart <mã giao dịch> để xem biểu đồ kỹ thuật (ví dụ: /chart BTC/USDT).\n"
+        "Gõ /chart <mã giao dịch> để xem biểu đồ kỹ thuật 1h, 1d (ví dụ: /chart BTC/USDT).\n"
         "Gõ /top để xem top 10 cặp giao dịch tăng, giảm mạnh nhất 24 giờ qua.\n"
-        "Gõ /signal <mã giao dịch> để xem lịch sử tín hiệu mua bán trong 7 ngày qua.\n"
-        "Gõ /smarttrade <mã giao dịch> để xem thông tin và tín hiệu mua bán mới nhất.\n"
+        "Gõ /signal <mã giao dịch> để xem lịch sử tín hiệu mua bán trong 7 ngày qua (ví dụ: /signal BTC/USDT).\n"
+        "Gõ /smarttrade <mã giao dịch> để xem thông tin hiện tại và tín hiệu mua bán mới nhất (ví dụ: /smarttrade BTC/USDT).\n"
         "Gõ /list để xem top 10 cặp giao dịch có tín hiệu mua bán gần đây.\n"
-        "Gõ /list10 để xem tín hiệu mua bán gần đây của 10 cặp giao dịch có vốn hóa lớn nhất thị trường.\n"
-        "Gõ /info để xem thông tin đồng coin.\n"
-        "Gõ /heatmap để xem heatmap của 100 đồng coin.\n"
-        "Gõ /sentiment để xem sentiment.\n"
-        "Gõ /desc để xem mô tả đồng coin.\n"
-        "Gõ /trending để xem top 15 trend coin."
+        "Gõ /list10 để xem tín hiệu mua bán gần đây của 10 cặp giao dịch (/USDT) có vốn hóa lớn nhất thị trường.\n"
+        "Gõ /info để xem thông tin chi tiết về đồng coin (ví dụ: /info bitcoin).\n"
+        "Gõ /desc để xem mô tả về đồng coin (ví dụ: /desc bitcoin).\n"
+        "Gõ /heatmap để xem heatmap 1h, 1d, 1w của top 100 đồng coin có vốn hóa lớn nhất thị trường.\n"
+        "Gõ /sentiment để xem tâm lý thị trường hiện tại.\n"
+        "Gõ /trending để xem top 15 coin được tìm kiếm nhiều nhất trong 3 giờ qua trên CoinGecko.\n"
+        "Gõ /news để xem tin tức hot và gần đây nhất."
     )
 
 
@@ -1077,8 +1078,8 @@ async def send_news_category(update: Update, category="hot"):
             messages.append(f"📰 *{title}*\n🕒 {time_posted} | 🌍 [{source}]({url})\n")
 
         category_titles = {
-            "hot": "🔥 *Hot News in Crypto 🔥*",
-            "latest": "🕒 *Recent News in Crypto 🔥*"
+            "hot": "🔥 *Tin hot về thị trường 🔥*",
+            "latest": "🕒 *Tin gần đây về thị trường 🔥*"
         }
 
         return f"{category_titles.get(category, 'Crypto News')}\n\n" + "\n".join(messages)
