@@ -840,7 +840,7 @@ async def sentiment(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
         # Nội dung tin nhắn
         caption = (
-            f"📊 *Crypto Fear & Greed Index*\n"
+            f"📊 *Chỉ số Tham lam và Sợ hãi*\n"
             f"📅 *Ngày cập nhật:* {last_updated}\n"
             f"📈 *Chỉ số hiện tại:* {value}/100\n"
             f"⚖️ *Tâm lý thị trường:* {status} {color}"
